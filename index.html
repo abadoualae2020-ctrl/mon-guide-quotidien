@@ -430,22 +430,30 @@
             if (error) alert("Erreur : " + error.message); else alert("Agenda synchronisé ! ☁️");
         }
         async function loadMessages() {
-    const { data: messages, error } = await supabaseClient
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-    if (!error) {
-        const chatBox = document.getElementById("chatBox");
-        chatBox.innerHTML = messages.map(m => `
-            <div style="background: var(--gris-leger); padding: 8px 12px; border-radius: 12px; max-width: 80%; width: fit-content;">
-                <small style="display:block; font-size:0.6rem; color: var(--marron); font-weight: bold;">${m.user_email}</small>
-                <div style="font-size: 0.9rem;">${m.text}</div>
-            </div>
-        `).join('');
-        chatBox.scrollTop = chatBox.scrollHeight; // Scroll automatique vers le bas
-    }
-}
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            const { data: messages } = await supabaseClient.from('messages').select('*').order('created_at', { ascending: true });
+            const chatBox = document.getElementById("chatBox");
+            
+            chatBox.innerHTML = messages?.map(m => `
+                <div style="display: flex; flex-direction: column; align-items: ${m.user_id === user?.id ? 'flex-end' : 'flex-start'}">
+                    <div style="background: ${m.user_id === user?.id ? 'var(--vert-fonce)' : 'var(--gris-leger)'}; 
+                                color: ${m.user_id === user?.id ? 'white' : 'black'}; 
+                                padding: 8px 12px; border-radius: 12px; max-width: 85%; position: relative;">
+                        <small style="display:block; font-weight:bold; font-size:0.7rem; opacity: 0.8;">${m.user_email}</small>
+                        <span>${m.text}</span>
+                        ${m.user_id === user?.id ? `<button onclick="deleteMessage('${m.id}')" style="background:none; border:none; cursor:pointer; margin-left:8px; font-size:0.8rem;">🗑️</button>` : ''}
+                    </div>
+                </div>
+            `).join('') || "";
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        async function deleteMessage(id) {
+            if (confirm("Supprimer ce message ?")) {
+                const { error } = await supabaseClient.from('messages').delete().eq('id', id);
+                if (error) alert("Erreur : " + error.message);
+                loadMessages();
+            }
+        }
 
 async function sendMessage() {
     const input = document.getElementById("chatInput");
@@ -467,6 +475,4 @@ async function sendMessage() {
     </script>
 </body>
 </html>
-
-
 
