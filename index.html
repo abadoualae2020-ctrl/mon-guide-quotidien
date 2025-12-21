@@ -262,15 +262,33 @@
 
         async function signOut() { await supabaseClient.auth.signOut(); checkUser(); }
 
-        async function checkUser() {
-            const { data: { user } } = await supabaseClient.auth.getUser();
-            document.getElementById('auth-screen').style.display = user ? 'none' : 'flex';
-            document.getElementById('main-interface').style.display = user ? 'flex' : 'none';
-            if (user) {
-                loadTasks();
-                setupCalendar();
-            }
-        }
+       // Détecter automatiquement le changement d'état (Connexion/Déconnexion)
+supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (session) {
+        console.log("Utilisateur connecté:", session.user.email);
+        checkUser();
+    } else {
+        document.getElementById('auth-screen').style.display = 'flex';
+        document.getElementById('main-interface').style.display = 'none';
+    }
+});
+
+async function checkUser() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    if (user) {
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('main-interface').style.display = 'flex';
+        
+        // On lance les chargements un par un avec des "try/catch" pour éviter les blocages
+        try { loadTasks(); } catch(e) { console.error("Erreur tâches:", e); }
+        try { setupCalendar(); } catch(e) { console.error("Erreur agenda:", e); }
+        try { initChat(); } catch(e) { console.error("Erreur chat:", e); }
+    }
+}
+
+// Appeler au chargement de la page
+window.onload = checkUser;
 
         // --- TÂCHES ---
         async function loadTasks() {
