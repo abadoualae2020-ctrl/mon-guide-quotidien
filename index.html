@@ -327,7 +327,14 @@
             { nom: "Pâtes Pesto Rosso 🍝", ingredients: ["150g de pâtes", "Pesto Rosso", "Parmesan"], methode: "Cuire les pâtes. Mélanger le pesto avec un peu d'eau de cuisson. Servir avec le parmesan.", pret: "10 min" },
             { nom: "Salade Feta Avocat 🥗", ingredients: ["1 Avocat", "50g de Feta", "Roquette"], methode: "Dénoyauter l'avocat, couper en dés avec la feta. Mélanger sur un lit de roquette.", pret: "5 min" },
             { nom: "Omelette Champignons 🍳", ingredients: ["3 œufs", "4 champignons", "Persil"], methode: "Poêler les champignons. Battre les œufs et verser par dessus. Cuire à feu doux.", pret: "8 min" },
-            { nom: "Gratin Dauphinois 🥔", ingredients: ["Pommes de terre", "Crème", "Ail"], methode: "Trancher finement les patates. Ranger dans un plat avec crème et ail. Cuire 45min à 180°C.", pret: "1h" }
+            { nom: "Gratin Dauphinois 🥔", ingredients: ["Pommes de terre", "Crème", "Ail"], methode: "Trancher finement les patates. Ranger dans un plat avec crème et ail. Cuire 45min à 180°C.", pret: "1h" },
+            { nom: "Smoothie Banane Fraise 🍓", ingredients: ["1 banane", "100g de fraises", "200ml de lait d'amande"], methode: "Mixer tous les ingrédients jusqu'à obtenir une texture lisse.", pret: "5 min" },
+            { nom: "Wrap Poulet Avocat 🌯", ingredients: ["Tortilla", "100g de poulet", "1 avocat", "Laitue"], methode: "Cuire le poulet. Garnir la tortilla avec poulet, avocat tranché et laitue. Rouler et servir.", pret: "15 min" }  ,
+            { nom: "Soupe Tomate Basilic 🍲", ingredients: ["500g de tomates", "1 oignon", "Basilic"], methode: "Faire revenir l'oignon, ajouter les tomates et cuire 20min. Mixer avec du basilic.", pret: "30 min" },
+            { nom: "Salade Quinoa Pois Chiches 🥗", ingredients: ["100g de quinoa", "100g de pois chiches", "Concombre", "Tomates cerises"], methode: "Cuire le quinoa. Mélanger avec pois chiches, concombre en dés et tomates cerises.", pret: "20 min" },
+            { nom: "Tacos Végétariens 🌮", ingredients: ["Tortillas", "Haricots noirs", "Maïs", "Avocat"], methode: "Réchauffer les tortillas. Garnir avec haricots, maïs et tranches d'avocat.", pret: "15 min" },
+            { nom: "Salade de Lentilles 🥗", ingredients: ["100g de lentilles", "Carottes râpées", "Oignon rouge", "Persil"], methode: "Cuire les lentilles. Mélanger avec carottes, oignon émincé et persil haché.", pret: "25 min" },
+
         ];
 
         const movies = [
@@ -361,13 +368,21 @@
             const ex = [
                 { nom: "Squats 🦵", desc: "Gardez le dos droit.", reps: "3x15" },
                 { nom: "Gainage 🧱", desc: "Appui sur avant-bras.", reps: "45 sec" }
+                , { nom: "Pompes 🤸‍♂️", desc: "Mains à largeur d'épaules.", reps: "3x10" }
+                , { nom: "Fentes Avant 🚶‍♀️", desc: "Genou arrière proche du sol.", reps: "3x12 par jambe" }
+                , { nom: "Mountain Climbers ⛰️", desc: "Dos droit, genoux vers la poitrine.", reps: "3x20"}
+                
+                    
+                
+                
             ];
+            }
             const c = ex[Math.floor(Math.random() * ex.length)];
             document.getElementById('workoutTitle').innerText = c.nom;
             document.getElementById('workoutDesc').innerText = c.desc;
             document.getElementById('workoutRep').innerText = "🎯 " + c.reps;
             document.getElementById('workoutBox').style.display = "block";
-        }
+        
 
         function startBreathing() {
             const t = document.getElementById('breathText');
@@ -380,7 +395,7 @@
         }
 
         function generateTip() {
-            const tips = ["Règle des 2 min", "Mange le crapaud 🐸", "Mode avion 📵"];
+            const tips = ["Étirements rapides le matin", "Relire le cours le jour même", "Faire une liste quotidienne", "Dormir à heures fixes", "Utiliser la technique Pomodoro pour étudier" ,"Boire un verre d'eau avant chaque repas", "Prendre des pauses régulières lors du travail", "Méditer 5 minutes par jour", "Préparer ses affaires la veille au soir"];
             document.getElementById('tipText').innerText = tips[Math.floor(Math.random() * tips.length)];
             document.getElementById('tipBox').style.display = "block";
         }
