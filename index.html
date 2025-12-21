@@ -720,24 +720,50 @@ async function loadMessages() {
         .order('created_at', { ascending: true });
 
     const chatBox = document.getElementById("chatBox");
-    chatBox.innerHTML = messages?.map(m => `
-        <div style="display: flex; flex-direction: column; align-items: ${m.user_id === user?.id ? 'flex-end' : 'flex-start'}">
-            <div style="background: ${m.user_id === user?.id ? 'var(--vert-fonce)' : 'var(--gris-leger)'}; 
-                        color: ${m.user_id === user?.id ? 'white' : 'black'}; 
-                        padding: 8px 12px; border-radius: 12px; max-width: 85%;">
-                <small style="display:block; font-weight:bold; font-size:0.6rem; opacity: 0.7; margin-bottom:2px;">
-                    ${m.user_email.split('@')[0]}
-                </small>
-                <span style="font-size: 0.9rem;">${m.text}</span>
+    chatBox.innerHTML = messages?.map(m => {
+    const isMine = m.user_id === user?.id;
+    return `
+        <div style="display: flex; flex-direction: column; align-items: ${isMine ? 'flex-end' : 'flex-start'}">
+            <div style="background: ${isMine ? 'var(--vert-fonce)' : 'var(--gris-leger)'}; 
+                        color: ${isMine ? 'white' : 'black'}; 
+                        padding: 8px 12px; border-radius: 12px; max-width: 85%; position: relative;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                    <small style="font-weight:bold; font-size:0.6rem; opacity: 0.7;">
+                        ${m.user_email.split('@')[0]}
+                    </small>
+                    ${isMine ? `<button onclick="deleteMessage('${m.id}')" style="background:none; border:none; color:white; cursor:pointer; font-size:0.7rem; padding:0; opacity:0.6;">✕</button>` : ''}
+                </div>
+                
+                <span style="font-size: 0.9rem; display: block; margin-top: 2px;">${m.text}</span>
             </div>
         </div>
-    `).join('') || "<p style='text-align:center; color:gray; font-size:0.8rem;'>Aucun message ici...</p>";
-    
-    chatBox.scrollTop = chatBox.scrollHeight;
+    `;
+}).join('') || "<p style='text-align:center; color:gray; font-size:0.8rem;'>Aucun message ici...</p>";
 }
 
 // Initialisation au chargement
 checkUser();
+// Rafraîchir les messages toutes les 5 secondes
+setInterval(() => {
+    if (document.getElementById('chat').classList.contains('active')) {
+        loadMessages();
+    }
+}, 5000);
+async function deleteMessage(messageId) {
+    if (!confirm("Voulez-vous vraiment supprimer ce message ?")) return;
+
+    const { error } = await supabaseClient
+        .from('messages')
+        .delete()
+        .eq('id', messageId);
+
+    if (error) {
+        alert("Erreur lors de la suppression : " + error.message);
+    } else {
+        loadMessages(); // Rafraîchir la liste après suppression
+    }
+}
     </script>
 </body>
 </html>
