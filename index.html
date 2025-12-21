@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Guide Quotidien</title>
     
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22> <text y=%22.9em%22 font-size=%2290%22>📅</text></svg>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📅</text></svg>">
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
@@ -56,22 +56,7 @@
         gap: 5px !important;
     }
 }
-.group-tab {
-    padding: 6px 15px;
-    border-radius: 20px;
-    border: 1px solid var(--marron-clair);
-    background: white;
-    color: var(--marron);
-    cursor: pointer;
-    font-size: 0.85rem;
-    white-space: nowrap;
-}
 
-.group-tab.active {
-    background: var(--marron);
-    color: white;
-    border-color: var(--marron);
-}
     </style>
 </head>
 <body>
@@ -215,19 +200,10 @@
 <div id="chat" class="content-section">
     <div class="card">
         <h2>💬 Discussion</h2>
-        
-        <div id="group-selector" style="display: flex; gap: 8px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;">
-            <button class="group-tab active" onclick="changeGroup('Général')">🌍 Général</button>
-            <button class="group-tab" onclick="changeGroup('Études')">📚 Études</button>
-            <button class="group-tab" onclick="changeGroup('Loisirs')">🎮 Loisirs</button>
-            <button class="group-tab" onclick="changeGroup('Entraide')">🤝 Entraide</button>
-        </div>
-
         <div id="chatBox" style="height: 300px; overflow-y: auto; border: 1px solid var(--gris-leger); padding: 10px; border-radius: 12px; margin-bottom: 10px; background: #fdfdfd; display: flex; flex-direction: column; gap: 8px;">
             </div>
-        
         <div style="display: flex; gap: 10px;">
-            <input type="text" id="chatInput" placeholder="Écris dans ce groupe...">
+            <input type="text" id="chatInput" placeholder="Écris un message...">
             <button onclick="sendMessage()" style="background: var(--vert-fonce); color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer;">Envoyer</button>
         </div>
     </div>
@@ -262,33 +238,15 @@
 
         async function signOut() { await supabaseClient.auth.signOut(); checkUser(); }
 
-       // Détecter automatiquement le changement d'état (Connexion/Déconnexion)
-supabaseClient.auth.onAuthStateChange((event, session) => {
-    if (session) {
-        console.log("Utilisateur connecté:", session.user.email);
-        checkUser();
-    } else {
-        document.getElementById('auth-screen').style.display = 'flex';
-        document.getElementById('main-interface').style.display = 'none';
-    }
-});
-
-async function checkUser() {
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    
-    if (user) {
-        document.getElementById('auth-screen').style.display = 'none';
-        document.getElementById('main-interface').style.display = 'flex';
-        
-        // On lance les chargements un par un avec des "try/catch" pour éviter les blocages
-        try { loadTasks(); } catch(e) { console.error("Erreur tâches:", e); }
-        try { setupCalendar(); } catch(e) { console.error("Erreur agenda:", e); }
-        try { initChat(); } catch(e) { console.error("Erreur chat:", e); }
-    }
-}
-
-// Appeler au chargement de la page
-window.onload = checkUser;
+        async function checkUser() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            document.getElementById('auth-screen').style.display = user ? 'none' : 'flex';
+            document.getElementById('main-interface').style.display = user ? 'flex' : 'none';
+            if (user) {
+                loadTasks();
+                setupCalendar();
+            }
+        }
 
         // --- TÂCHES ---
         async function loadTasks() {
@@ -471,60 +429,21 @@ window.onload = checkUser;
             const { error } = await supabaseClient.from('agenda').upsert(updates, { onConflict: 'user_id,day_name' });
             if (error) alert("Erreur : " + error.message); else alert("Agenda synchronisé ! ☁️");
         }
-        let currentGroup = 'Général'; // Groupe par défaut
-
-let groupsMap = {}; 
-let currentGroupId = null;
-
-// Cette fonction va chercher les IDs réels dans ta table "groups"
-async function initChat() {
-    const { data: groups, error } = await supabaseClient.from('groups').select('*');
-    if (!error && groups) {
-        groups.forEach(g => { groupsMap[g.name] = g.id; });
-        currentGroupId = groupsMap['Général']; // On définit le groupe par défaut
-        loadMessages();
-    }
-}
-
-async function changeGroup(groupName) {
-    currentGroupId = groupsMap[groupName]; 
-    document.querySelectorAll('.group-tab').forEach(btn => {
-        btn.classList.toggle('active', btn.innerText.includes(groupName));
-    });
-    document.getElementById('chatInput').placeholder = `Écris dans ${groupName}...`;
-    loadMessages();
-}
-
-async function loadMessages() {
-    const { data: { user } } = await supabaseClient.auth.getUser();
+        async function loadMessages() {
     const { data: messages, error } = await supabaseClient
         .from('messages')
         .select('*')
-        .eq('group_id', currentGroup)
         .order('created_at', { ascending: true });
 
     if (!error) {
         const chatBox = document.getElementById("chatBox");
-        chatBox.innerHTML = messages.map(m => {
-            // On vérifie si c'est notre message
-            const isMine = m.user_id === user.id;
-            
-            return `
-            <div style="display: flex; flex-direction: column; align-items: ${isMine ? 'flex-end' : 'flex-start'}; gap: 2px;">
-                <div style="background: ${isMine ? 'var(--marron-clair)' : 'var(--gris-leger)'}; 
-                            color: ${isMine ? 'white' : 'black'}; 
-                            padding: 8px 12px; border-radius: 12px; max-width: 80%; width: fit-content; position: relative;">
-                    <small style="display:block; font-size:0.6rem; opacity: 0.8; font-weight: bold;">
-                        ${m.user_email ? m.user_email.split('@')[0] : 'Anonyme'}
-                    </small>
-                    <div style="font-size: 0.9rem;">${m.text}</div>
-                    
-                    ${isMine ? `<button onclick="deleteChatMessage('${m.id}')" style="background:none; border:none; cursor:pointer; font-size:0.7rem; margin-top:5px; display:block; color: white; padding:0; text-decoration: underline;">Supprimer</button>` : ''}
-                </div>
+        chatBox.innerHTML = messages.map(m => `
+            <div style="background: var(--gris-leger); padding: 8px 12px; border-radius: 12px; max-width: 80%; width: fit-content;">
+                <small style="display:block; font-size:0.6rem; color: var(--marron); font-weight: bold;">${m.user_email}</small>
+                <div style="font-size: 0.9rem;">${m.text}</div>
             </div>
-            `;
-        }).join('');
-        chatBox.scrollTop = chatBox.scrollHeight;
+        `).join('');
+        chatBox.scrollTop = chatBox.scrollHeight; // Scroll automatique vers le bas
     }
 }
 
@@ -534,23 +453,17 @@ async function sendMessage() {
 
     const { data: { user } } = await supabaseClient.auth.getUser();
     
-    // On ajoute 'group_name' lors de l'envoi
-    const { error } = await supabaseClient.from('messages').insert([
-        { 
-            text: input.value, 
-            user_id: user.id, 
-            user_email: user.email,
-            group_name: currentGroup 
-        }
+    await supabaseClient.from('messages').insert([
+        { text: input.value, user_id: user.id, user_email: user.email }
     ]);
-
-    if (error) {
-        console.error(error);
-        alert("Erreur d'envoi. Vérifiez si la colonne 'group_name' existe sur Supabase.");
-    }
 
     input.value = "";
     loadMessages();
-}   </script>
+}
+
+// Pour rafraîchir le chat quand on ouvre l'onglet
+// Modifie ta fonction openTab pour inclure :
+// if (tabName === 'chat') loadMessages();
+    </script>
 </body>
 </html>
