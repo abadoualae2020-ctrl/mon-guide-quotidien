@@ -82,6 +82,7 @@
                 <button class="tab-btn" onclick="openTab(event, 'bienetre')">🧘 Zen</button>
                 <button class="tab-btn" onclick="openTab(event, 'conseils')">💡 Astuces</button>
                 <button class="tab-btn" onclick="openTab(event, 'agenda')">📅 Agenda</button>
+                <button class="tab-btn" onclick="openTab(event, 'chat')">💬 Chat</button>
             </div>
         </div>
 
@@ -194,6 +195,17 @@
         <p style="font-size: 0.75rem; color: var(--marron-clair); margin-top: 15px; text-align: center;">
             Clique sur les textes pour modifier ton programme.
         </p>
+    </div>
+</div>
+<div id="chat" class="content-section">
+    <div class="card">
+        <h2>💬 Discussion</h2>
+        <div id="chatBox" style="height: 300px; overflow-y: auto; border: 1px solid var(--gris-leger); padding: 10px; border-radius: 12px; margin-bottom: 10px; background: #fdfdfd; display: flex; flex-direction: column; gap: 8px;">
+            </div>
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="chatInput" placeholder="Écris un message...">
+            <button onclick="sendMessage()" style="background: var(--vert-fonce); color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer;">Envoyer</button>
+        </div>
     </div>
 </div>
     </div>
@@ -354,13 +366,16 @@
 
         // --- NAVIGATION & AGENDA ---
         function openTab(evt, tabName) {
-            let contents = document.getElementsByClassName("content-section");
-            for (let c of contents) c.classList.remove("active");
-            let buttons = document.getElementsByClassName("tab-btn");
-            for (let b of buttons) b.classList.remove("active");
-            document.getElementById(tabName).classList.add("active");
-            evt.currentTarget.classList.add("active");
-        }
+    let contents = document.getElementsByClassName("content-section");
+    for (let c of contents) c.classList.remove("active");
+    let buttons = document.getElementsByClassName("tab-btn");
+    for (let b of buttons) b.classList.remove("active");
+    document.getElementById(tabName).classList.add("active");
+    evt.currentTarget.classList.add("active");
+
+    // Ajoute cette ligne pour charger le chat quand on clique dessus
+    if (tabName === 'chat') loadMessages();
+}
 
         async function setupCalendar() {
             const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
@@ -414,7 +429,44 @@
             const { error } = await supabaseClient.from('agenda').upsert(updates, { onConflict: 'user_id,day_name' });
             if (error) alert("Erreur : " + error.message); else alert("Agenda synchronisé ! ☁️");
         }
+        async function loadMessages() {
+    const { data: messages, error } = await supabaseClient
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+    if (!error) {
+        const chatBox = document.getElementById("chatBox");
+        chatBox.innerHTML = messages.map(m => `
+            <div style="background: var(--gris-leger); padding: 8px 12px; border-radius: 12px; max-width: 80%; width: fit-content;">
+                <small style="display:block; font-size:0.6rem; color: var(--marron); font-weight: bold;">${m.user_email}</small>
+                <div style="font-size: 0.9rem;">${m.text}</div>
+            </div>
+        `).join('');
+        chatBox.scrollTop = chatBox.scrollHeight; // Scroll automatique vers le bas
+    }
+}
+
+async function sendMessage() {
+    const input = document.getElementById("chatInput");
+    if (!input.value) return;
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    await supabaseClient.from('messages').insert([
+        { text: input.value, user_id: user.id, user_email: user.email }
+    ]);
+
+    input.value = "";
+    loadMessages();
+}
+
+// Pour rafraîchir le chat quand on ouvre l'onglet
+// Modifie ta fonction openTab pour inclure :
+// if (tabName === 'chat') loadMessages();
     </script>
 </body>
 </html>
+
+
 
