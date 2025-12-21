@@ -551,7 +551,164 @@ async function sendMessage() {
     loadMessages();
 }
 
-// 5. Modifier loadMessages pour filtrer par groupe
+// --- LOGIQUE DES GROUPES ---
+
+async function loadGroups() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) return;
+
+    // Récupérer les groupes dont l'utilisateur est membre
+    const { data: memberships, error } = await supabaseClient.from('group_members')
+        .select('group_id, groups(name)')
+        .eq('user_email', user.email);
+
+    const select = document.getElementById("groupSelect");
+    if (memberships && memberships.length > 0) {
+        select.innerHTML = memberships.map(m => 
+            `<option value="${m.group_id}">${m.groups.name}</option>`
+        ).join('');
+        loadMessages(); // Charger les messages du premier groupe par défaut
+    } else {
+        select.innerHTML = '<option value="">Aucun groupe</option>';
+        document.getElementById("chatBox").innerHTML = "<p style='text-align:center; font-size:0.8rem;'>Créez un groupe pour commencer à discuter.</p>";
+    }
+}
+
+async function createGroup() {
+    const name = document.getElementById("newGroupName").value;
+    if (!name) return;
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    // 1. Créer le groupe
+    const { data: group, error } = await supabaseClient.from('groups')
+        .insert([{ name: name, creator_id: user.id }])
+        .select()
+        .single();
+    
+    if (!error) {
+        // 2. S'ajouter soi-même comme membre
+        await supabaseClient.from('group_members').insert([{ group_id: group.id, user_email: user.email }]);
+        document.getElementById("newGroupName").value = "";
+        alert("Groupe créé !");
+        loadGroups(); 
+    } else {
+        alert("Erreur lors de la création du groupe.");
+    }
+}
+
+async function inviteUser() {
+    const email = document.getElementById("inviteEmail").value;
+    const groupId = document.getElementById("groupSelect").value;
+    if (!email || !groupId) return alert("Choisis un groupe et entre un email");
+
+    const { error } = await supabaseClient.from('group_members').insert([{ group_id: groupId, user_email: email }]);
+    if (error) {
+        alert("Utilisateur déjà présent ou erreur de saisie.");
+    } else {
+        alert("Ami ajouté au groupe !");
+        document.getElementById("inviteEmail").value = "";
+    }
+}
+
+async function sendMessage() {
+    const input = document.getElementById("chatInput");
+    const groupId = document.getElementById("groupSelect").value;
+    if (!input.value || !groupId) return;
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    const { error } = await supabaseClient.from('messages').insert([{ 
+        text: input.value, 
+        user_id: user.id, 
+        user_email: user.email,
+        group_id: groupId 
+    }]);
+
+    if (!error) {
+        input.value = "";
+        loadMessages();
+    }
+}
+
+// --- LOGIQUE DES GROUPES ---
+
+async function loadGroups() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user) return;
+
+    // Récupérer les groupes dont l'utilisateur est membre
+    const { data: memberships, error } = await supabaseClient.from('group_members')
+        .select('group_id, groups(name)')
+        .eq('user_email', user.email);
+
+    const select = document.getElementById("groupSelect");
+    if (memberships && memberships.length > 0) {
+        select.innerHTML = memberships.map(m => 
+            `<option value="${m.group_id}">${m.groups.name}</option>`
+        ).join('');
+        loadMessages(); // Charger les messages du premier groupe par défaut
+    } else {
+        select.innerHTML = '<option value="">Aucun groupe</option>';
+        document.getElementById("chatBox").innerHTML = "<p style='text-align:center; font-size:0.8rem;'>Créez un groupe pour commencer à discuter.</p>";
+    }
+}
+
+async function createGroup() {
+    const name = document.getElementById("newGroupName").value;
+    if (!name) return;
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    // 1. Créer le groupe
+    const { data: group, error } = await supabaseClient.from('groups')
+        .insert([{ name: name, creator_id: user.id }])
+        .select()
+        .single();
+    
+    if (!error) {
+        // 2. S'ajouter soi-même comme membre
+        await supabaseClient.from('group_members').insert([{ group_id: group.id, user_email: user.email }]);
+        document.getElementById("newGroupName").value = "";
+        alert("Groupe créé !");
+        loadGroups(); 
+    } else {
+        alert("Erreur lors de la création du groupe.");
+    }
+}
+
+async function inviteUser() {
+    const email = document.getElementById("inviteEmail").value;
+    const groupId = document.getElementById("groupSelect").value;
+    if (!email || !groupId) return alert("Choisis un groupe et entre un email");
+
+    const { error } = await supabaseClient.from('group_members').insert([{ group_id: groupId, user_email: email }]);
+    if (error) {
+        alert("Utilisateur déjà présent ou erreur de saisie.");
+    } else {
+        alert("Ami ajouté au groupe !");
+        document.getElementById("inviteEmail").value = "";
+    }
+}
+
+async function sendMessage() {
+    const input = document.getElementById("chatInput");
+    const groupId = document.getElementById("groupSelect").value;
+    if (!input.value || !groupId) return;
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    const { error } = await supabaseClient.from('messages').insert([{ 
+        text: input.value, 
+        user_id: user.id, 
+        user_email: user.email,
+        group_id: groupId 
+    }]);
+
+    if (!error) {
+        input.value = "";
+        loadMessages();
+    }
+}
+
 async function loadMessages() {
     const groupId = document.getElementById("groupSelect").value;
     if (!groupId) return;
@@ -565,14 +722,22 @@ async function loadMessages() {
     const chatBox = document.getElementById("chatBox");
     chatBox.innerHTML = messages?.map(m => `
         <div style="display: flex; flex-direction: column; align-items: ${m.user_id === user?.id ? 'flex-end' : 'flex-start'}">
-            <div style="background: ${m.user_id === user?.id ? 'var(--vert-fonce)' : 'var(--gris-leger)'}; color: ${m.user_id === user?.id ? 'white' : 'black'}; padding: 8px 12px; border-radius: 12px; max-width: 85%;">
-                <small style="display:block; font-size:0.6rem; opacity:0.8;">${m.user_email}</small>
-                <span>${m.text}</span>
+            <div style="background: ${m.user_id === user?.id ? 'var(--vert-fonce)' : 'var(--gris-leger)'}; 
+                        color: ${m.user_id === user?.id ? 'white' : 'black'}; 
+                        padding: 8px 12px; border-radius: 12px; max-width: 85%;">
+                <small style="display:block; font-weight:bold; font-size:0.6rem; opacity: 0.7; margin-bottom:2px;">
+                    ${m.user_email.split('@')[0]}
+                </small>
+                <span style="font-size: 0.9rem;">${m.text}</span>
             </div>
         </div>
-    `).join('') || "Aucun message dans ce groupe.";
+    `).join('') || "<p style='text-align:center; color:gray; font-size:0.8rem;'>Aucun message ici...</p>";
+    
     chatBox.scrollTop = chatBox.scrollHeight;
 }
+
+// Initialisation au chargement
+checkUser();
     </script>
 </body>
 </html>
