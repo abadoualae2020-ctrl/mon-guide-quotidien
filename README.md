@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Guide Quotidien</title>
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📅</text></svg>">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <style>
+        :root {
+            --blanc-fond: #F9F9F7;
+            --vert-fonce: #1B3022;
+            --marron: #7E5939;
+            --marron-clair: #A68A64;
+            --gris-leger: #ECECE8;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--blanc-fond); color: var(--vert-fonce); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding-bottom: 40px; }
+
+        /* --- AUTHENTIFICATION --- */
+        #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; width: 100%; background: var(--blanc-fond); position: fixed; z-index: 1000; }
+        .auth-card { background: white; padding: 40px; border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); text-align: center; width: 320px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid var(--gris-leger); border-radius: 12px; box-sizing: border-box; outline: none; }
+        .btn-auth { width: 100%; padding: 15px; border-radius: 12px; border: none; cursor: pointer; font-weight: 600; margin-top: 10px; }
+
+        /* --- INTERFACE PRINCIPALE --- */
+        #main-interface { display: none; width: 100%; flex-direction: column; align-items: center; }
+
+        .tabs-container { width: 100%; display: flex; justify-content: center; position: sticky; top: 0; background: var(--blanc-fond); padding: 20px 0; z-index: 100; border-bottom: 1px solid var(--gris-leger); }
+        .tabs { display: flex; gap: 8px; background: var(--gris-leger); padding: 6px; border-radius: 50px; overflow-x: auto; max-width: 95%; }
+        
+        .tab-btn { 
+            padding: 10px 20px; border: none; background: none; cursor: pointer; border-radius: 40px; color: var(--marron); font-weight: 600; white-space: nowrap; transition: 0.3s;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .tab-btn.active { background-color: var(--vert-fonce); color: white; }
+
+        .content-section { display: none; width: 90%; max-width: 500px; margin-top: 20px; animation: fadeIn 0.4s ease-out; }
+        .content-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card { background: white; padding: 25px; border-radius: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.04); border: 1px solid var(--gris-leger); margin-bottom: 20px; }
+        .action-btn { background-color: var(--vert-fonce); color: white; border: none; padding: 15px; width: 100%; border-radius: 12px; cursor: pointer; font-weight: 600; margin-top: 10px; }
+        .logout-btn { position: absolute; top: 20px; right: 20px; background: white; border: 1px solid var(--marron); color: var(--marron); padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; z-index: 200; }
+
+        .timer-display { font-size: 3.5rem; font-weight: bold; text-align: center; color: var(--marron); margin: 10px 0; }
+        .task-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--gris-leger); }
+
+        @media (max-width: 400px) {
+    .edit-agenda { font-size: 0.75rem !important; }
+    #calendar-container div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+        gap: 5px !important;
+    }
+}
+
+    </style>
+</head>
+<body>
+
+    <div id="auth-screen">
+        <div class="auth-card">
+            <h2 id="auth-title">Connexion</h2>
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Mot de passe">
+            <button class="btn-auth" style="background: var(--vert-fonce); color: white;" onclick="signIn()">Se connecter</button>
+            <button class="btn-auth" style="background: none; color: var(--marron); border: 1px solid var(--marron); font-size: 0.8rem;" onclick="toggleAuthMode()" id="switch-btn">S'inscrire</button>
+        </div>
+    </div>
+
+    <div id="main-interface">
+        <button class="logout-btn" onclick="signOut()">Déconnexion</button>
+
+        <div class="tabs-container">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="openTab(event, 'planning')">📌 taches</button>
+                <button class="tab-btn" onclick="openTab(event, 'revisions')">⏳ Révisions</button>
+                <button class="tab-btn" onclick="openTab(event, 'cuisine')">🍳 Loisirs</button>
+                <button class="tab-btn" onclick="openTab(event, 'bienetre')">🧘 Zen</button>
+                <button class="tab-btn" onclick="openTab(event, 'conseils')">💡 Astuces</button>
+                <button class="tab-btn" onclick="openTab(event, 'agenda')">📅 Agenda</button>
+                <button class="tab-btn" onclick="openTab(event, 'chat')">💬 Chat</button>
+            </div>
+        </div>
+
+        <div id="planning" class="content-section active">
+            <div class="card">
+                <h2 id="planning-title">📌​ Mes taches</h2>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="taskInput" placeholder="Ajouter une tâche...">
+                    <button onclick="addTask()" style="background: var(--marron); color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer;">+</button>
+                </div>
+                <div id="taskList" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <div id="revisions" class="content-section">
+            <div class="card">
+                <h2>⏲️ Mode Focus (Pomodoro)</h2>
+                <div class="timer-display" id="timer">25:00</div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="action-btn" id="startBtn" onclick="toggleTimer()">Démarrer</button>
+                    <button class="action-btn" style="background: var(--gris-leger); color: var(--vert-fonce);" onclick="resetTimer()">Reset</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>📚 Techniques de Révision</h2>
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                    <details style="background: var(--blanc-fond); padding: 10px; border-radius: 12px;">
+                        <summary style="font-weight: bold; cursor: pointer;">💡 La Méthode Feynman</summary>
+                        <p style="font-size: 0.9rem; margin-top: 5px;">Explique un concept complexe comme si tu t'adressais à un enfant de 5 ans. Si tu bloques, c'est là que tu dois réviser.</p>
+                    </details>
+                    <details style="background: var(--blanc-fond); padding: 10px; border-radius: 12px;">
+                        <summary style="font-weight: bold; cursor: pointer;">🃏 Répétition Espacée</summary>
+                        <p style="font-size: 0.9rem; margin-top: 5px;">Revois tes notes à J+1, J+3, J+7 et J+30 pour ancrer l'information dans ta mémoire à long terme.</p>
+                    </details>
+                    <details style="background: var(--blanc-fond); padding: 10px; border-radius: 12px;">
+                        <summary style="font-weight: bold; cursor: pointer;">✍️ Active Recall</summary>
+                        <p style="font-size: 0.9rem; margin-top: 5px;">Ferme ton livre et écris tout ce dont tu te souviens sur une feuille blanche avant de vérifier.</p>
+                    </details>
+                    <details style="background: var(--blanc-fond); padding: 10px; border-radius: 12px;">
+                        <summary style="font-weight: bold; cursor: pointer;">🧠 La méthode du Palais Mental</summary>
+                        <p style="font-size: 0.9rem; margin-top: 5px;">Imagine un lieu que tu connais par cœur (ta maison). Place les concepts à réviser dans chaque pièce.</p>
+                    </details>
+                    <details style="background: var(--blanc-fond); padding: 10px; border-radius: 12px;">
+                        <summary style="font-weight: bold; cursor: pointer;">📵 Mode Avion Obligatoire</summary>
+                        <p style="font-size: 0.9rem; margin-top: 5px;">Mettre son téléphone dans une autre pièce multiplie ta capacité de mémorisation par 2.</p>
+                    </details>
+                </div>
+            </div>
+        </div>
+
+        <div id="cuisine" class="content-section">
+            <div class="card">
+                <h2>🍳 Idées Cuisine</h2>
+                <button class="action-btn" onclick="randomRecipe()">Générer une idée</button>
+                <div id="recipeDisplay" style="margin-top: 15px; color: var(--marron);"></div>
+            </div>
+            <div class="card">
+                <h2>🎬 Session Ciné</h2>
+                <button class="action-btn" style="background: var(--marron-clair);" onclick="randomMovie()">Quel film regarder ?</button>
+                <p id="movieDisplay" style="margin-top: 15px; font-weight: bold; text-align: center; color: var(--marron);"></p>
+            </div>
+        </div>
+
+        <div id="bienetre" class="content-section">
+            <div class="card">
+                <h2>⚡ Flash Sport (Sans matériel)</h2>
+                <button class="action-btn" onclick="generateWorkout()">Générer un exercice</button>
+                <div id="workoutBox" style="display:none; margin-top: 20px; padding: 15px; background: #f0f4f1; border-radius: 12px; border-left: 5px solid var(--vert-fonce);">
+                    <h3 id="workoutTitle" style="margin-top:0; color: var(--vert-fonce);"></h3>
+                    <p id="workoutDesc" style="font-size: 0.9rem; margin-bottom: 10px;"></p>
+                    <p style="font-weight: bold; color: var(--marron);" id="workoutRep"></p>
+                </div>
+            </div>
+            <div class="card">
+                <h2>🧘 Relaxation</h2>
+                <button class="action-btn" style="background: var(--marron-clair);" onclick="startBreathing()">Exercice de respiration (4-4-4)</button>
+                <p id="breathText" style="font-size: 1.2rem; text-align: center; margin-top: 15px; color: var(--marron);"></p>
+            </div>
+        </div>
+
+        <div id="conseils" class="content-section">
+            <div class="card">
+                <h2>💡 Astuce du Jour</h2>
+                <button class="action-btn" onclick="generateTip()">Découvrir une astuce</button>
+                <div id="tipBox" style="display:none; margin-top: 20px; padding: 15px; background: var(--gris-leger); border-radius: 12px; border-left: 5px solid var(--marron);">
+                    <p id="tipText" style="font-style: italic; line-height: 1.5; margin: 0;"></p>
+                </div>
+            </div>
+            <div class="card">
+                <h2>📚 Les Essentiels</h2>
+                <ul style="line-height: 2; padding-left: 20px;">
+                    <li><b>Eau :</b> 1 verre au réveil = cerveau réveillé.</li>
+                    <li><b>Sommeil :</b> Pas d'écran 30 min avant de dormir.</li>
+                    <li><b>Focus :</b> Une seule tâche à la fois.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="agenda" class="content-section">
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="margin: 0;"> 📅 Mon planning</h2>
+            <button onclick="saveAgenda()" style="background: var(--marron); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.8rem;">Enregistrer 💾</button>
+        </div>
+        
+        <div id="calendar-container" style="display: flex; flex-direction: column; gap: 12px;">
+            </div>
+        
+        <p style="font-size: 0.75rem; color: var(--marron-clair); margin-top: 15px; text-align: center;">
+            Clique sur les textes pour modifier ton programme.
+        </p>
+    </div>
+</div>
+<div id="chat" class="content-section">
+    <div class="card">
+        <h2>💬 Discussion</h2>
+        <div id="chatBox" style="height: 300px; overflow-y: auto; border: 1px solid var(--gris-leger); padding: 10px; border-radius: 12px; margin-bottom: 10px; background: #fdfdfd; display: flex; flex-direction: column; gap: 8px;">
+            </div>
+        <div style="display: flex; gap: 10px;">
+            <input type="text" id="chatInput" placeholder="Écris un message...">
+            <button onclick="sendMessage()" style="background: var(--vert-fonce); color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer;">Envoyer</button>
+        </div>
+    </div>
+</div>
+    </div>
+
+    <script>
+       const SUPABASE_URL = 'https://gdxfrbetccvzcrnbsqzg.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_1iqAe46EAtTc2b1MnNjSng_OUOpTFWm';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let isLoginMode = true;
+
+        // --- AUTH ---
+        function toggleAuthMode() {
+            isLoginMode = !isLoginMode;
+            document.getElementById('auth-title').innerText = isLoginMode ? "Connexion" : "Inscription";
+            document.getElementById('switch-btn').innerText = isLoginMode ? "S'inscrire" : "Déjà un compte ? Connexion";
+        }
+
+        async function signIn() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            if (isLoginMode) {
+                const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                if (error) alert(error.message); else checkUser();
+            } else {
+                const { error } = await supabaseClient.auth.signUp({ email, password });
+                if (error) alert(error.message); else { alert("Compte créé !"); checkUser(); }
+            }
+        }
+
+        async function signOut() { await supabaseClient.auth.signOut(); checkUser(); }
+
+        async function checkUser() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            document.getElementById('auth-screen').style.display = user ? 'none' : 'flex';
+            document.getElementById('main-interface').style.display = user ? 'flex' : 'none';
+            if (user) {
+                loadTasks();
+                setupCalendar();
+            }
+        }
+
+        // --- TÂCHES ---
+        async function loadTasks() {
+            const { data: tasks, error } = await supabaseClient.from('tasks').select('*').order('created_at', { ascending: false });
+            if (!error) {
+                const list = document.getElementById("taskList");
+                list.innerHTML = "";
+                tasks.forEach(t => {
+                    let div = document.createElement("div");
+                    div.className = "task-item";
+                    div.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" ${t.is_completed ? 'checked' : ''} onchange="toggleTaskStatus('${t.id}', this.checked)">
+                            <span style="text-decoration: ${t.is_completed ? 'line-through' : 'none'}">${t.text}</span>
+                        </div>
+                        <button onclick="deleteTask('${t.id}')" style="background:none; border:none; cursor:pointer;">🗑️</button>`;
+                    list.appendChild(div);
+                });
+            }
+        }
+
+        async function addTask() {
+            const input = document.getElementById("taskInput");
+            if (!input.value) return;
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            await supabaseClient.from('tasks').insert([{ text: input.value, user_id: user.id }]);
+            input.value = "";
+            loadTasks();
+        }
+
+        async function toggleTaskStatus(id, isCompleted) {
+            await supabaseClient.from('tasks').update({ is_completed: isCompleted }).eq('id', id);
+            loadTasks();
+        }
+
+        async function deleteTask(id) {
+            await supabaseClient.from('tasks').delete().eq('id', id);
+            loadTasks();
+        }
+
+        // --- POMODORO ---
+        let timeLeft = 1500; let timerId = null;
+        function toggleTimer() {
+            if (timerId) { clearInterval(timerId); timerId = null; document.getElementById('startBtn').innerText = "Démarrer"; }
+            else { timerId = setInterval(updateTimer, 1000); document.getElementById('startBtn').innerText = "Pause"; }
+        }
+        function updateTimer() {
+            if (timeLeft <= 0) { clearInterval(timerId); alert("Temps écoulé !"); return; }
+            timeLeft--;
+            const m = Math.floor(timeLeft / 60); const s = timeLeft % 60;
+            document.getElementById('timer').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+        function resetTimer() { clearInterval(timerId); timerId = null; timeLeft = 1500; document.getElementById('timer').innerText = "25:00"; }
+
+        // --- CUISINE & CINÉ ---
+        const recipes = [
+            { nom: "Pâtes Pesto Rosso 🍝", ingredients: ["150g de pâtes", "Pesto Rosso", "Parmesan"], methode: "Cuire les pâtes. Mélanger le pesto avec un peu d'eau de cuisson. Servir avec le parmesan.", pret: "10 min" },
+            { nom: "Salade Feta Avocat 🥗", ingredients: ["1 Avocat", "50g de Feta", "Roquette"], methode: "Dénoyauter l'avocat, couper en dés avec la feta. Mélanger sur un lit de roquette.", pret: "5 min" },
+            { nom: "Omelette Champignons 🍳", ingredients: ["3 œufs", "4 champignons", "Persil"], methode: "Poêler les champignons. Battre les œufs et verser par dessus. Cuire à feu doux.", pret: "8 min" },
+            { nom: "Gratin Dauphinois 🥔", ingredients: ["Pommes de terre", "Crème", "Ail"], methode: "Trancher finement les patates. Ranger dans un plat avec crème et ail. Cuire 45min à 180°C.", pret: "1h" }
+        ];
+
+        const movies = [
+            { titre: "Inception 🌀", resume: "Un voleur s'infiltre dans les rêves pour y implanter des idées." },
+            { titre: "Intouchables 🍿", resume: "L'histoire vraie d'une amitié entre un riche aristocrate et son aide à domicile." },
+            { titre: "Interstellar 🚀", resume: "Un voyage spatial à travers un trou de ver pour sauver l'humanité." },
+            { titre: "Le Voyage de Chihiro ⛩️", resume: "Une fillette perdue dans un monde fantastique dirigé par une sorcière." },
+            { titre: "Spider-Man 🕷️", resume: "Un lycéen acquiert des super-pouvoirs après une morsure d'araignée." }
+        ];
+
+        function randomRecipe() {
+            const c = recipes[Math.floor(Math.random() * recipes.length)];
+            document.getElementById('recipeDisplay').innerHTML = `
+                <h3 style="margin-bottom:5px;">${c.nom}</h3>
+                <small>⏳ ${c.pret}</small>
+                <p><b>Ingrédients:</b> ${c.ingredients.join(', ')}</p>
+                <p style="background:var(--blanc-fond); padding:10px; border-radius:10px; font-size:0.9rem;"><b>Préparation:</b> ${c.methode}</p>
+            `;
+        }
+
+        function randomMovie() {
+            const m = movies[Math.floor(Math.random() * movies.length)];
+            document.getElementById('movieDisplay').innerHTML = `
+                <div style="font-size:1.1rem; margin-bottom:5px;">${m.titre}</div>
+                <div style="font-weight:normal; font-size:0.85rem; color:#666;">${m.resume}</div>
+            `;
+        }
+
+        // --- BIEN-ETRE & CONSEILS ---
+        function generateWorkout() {
+            const ex = [
+                { nom: "Squats 🦵", desc: "Gardez le dos droit.", reps: "3x15" },
+                { nom: "Gainage 🧱", desc: "Appui sur avant-bras.", reps: "45 sec" }
+            ];
+            const c = ex[Math.floor(Math.random() * ex.length)];
+            document.getElementById('workoutTitle').innerText = c.nom;
+            document.getElementById('workoutDesc').innerText = c.desc;
+            document.getElementById('workoutRep').innerText = "🎯 " + c.reps;
+            document.getElementById('workoutBox').style.display = "block";
+        }
+
+        function startBreathing() {
+            const t = document.getElementById('breathText');
+            t.innerText = "Inspirez...";
+            setTimeout(() => { t.innerText = "Bloquez..."; 
+                setTimeout(() => { t.innerText = "Expirez..."; 
+                    setTimeout(() => { t.innerText = "Terminé ! ✨"; }, 4000);
+                }, 4000);
+            }, 4000);
+        }
+
+        function generateTip() {
+            const tips = ["Règle des 2 min", "Mange le crapaud 🐸", "Mode avion 📵"];
+            document.getElementById('tipText').innerText = tips[Math.floor(Math.random() * tips.length)];
+            document.getElementById('tipBox').style.display = "block";
+        }
+
+        // --- NAVIGATION & AGENDA ---
+        function openTab(evt, tabName) {
+    let contents = document.getElementsByClassName("content-section");
+    for (let c of contents) c.classList.remove("active");
+    let buttons = document.getElementsByClassName("tab-btn");
+    for (let b of buttons) b.classList.remove("active");
+    document.getElementById(tabName).classList.add("active");
+    evt.currentTarget.classList.add("active");
+
+    // Ajoute cette ligne pour charger le chat quand on clique dessus
+    if (tabName === 'chat') loadMessages();
+}
+
+        async function setupCalendar() {
+            const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+            const container = document.getElementById('calendar-container');
+            const { data: { user } } = await supabaseClient.auth.getUser();
+
+            const { data: savedData } = await supabaseClient.from('agenda').select('*').eq('user_id', user.id);
+
+            container.innerHTML = ""; 
+
+            jours.forEach(jour => {
+                const entry = savedData ? savedData.find(d => d.day_name === jour) : null;
+                // Logique pour afficher "Rien de prévu" si vide ou null
+                const matin = (entry && entry.morning_text && entry.morning_text !== "null") ? entry.morning_text : "RIEN DE PRÉVU";
+                const am = (entry && entry.afternoon_text && entry.afternoon_text !== "null") ? entry.afternoon_text : "RIEN DE PRÉVU";
+                const soir = (entry && entry.evening_text && entry.evening_text !== "null") ? entry.evening_text : "RIEN DE PRÉVU";
+
+                container.innerHTML += `
+                    <div style="border: 1px solid var(--gris-leger); border-radius: 15px; padding: 12px; background: #fff; margin-bottom:10px;">
+                        <div style="font-weight: bold; color: var(--vert-fonce); border-bottom: 1px solid var(--gris-leger); margin-bottom: 8px; padding-bottom: 4px;">${jour}</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                            <div>
+                                <small style="color: var(--marron-clair); font-weight: 600;">☀️ MATIN</small>
+                                <div class="edit-agenda" data-day="${jour}" data-time="morning" contenteditable="true" style="font-size: 0.85rem; color: #555; outline: none;">${matin}</div>
+                            </div>
+                            <div>
+                                <small style="color: var(--marron-clair); font-weight: 600;">⛅ A-M</small>
+                                <div class="edit-agenda" data-day="${jour}" data-time="afternoon" contenteditable="true" style="font-size: 0.85rem; color: #555; outline: none;">${am}</div>
+                            </div>
+                            <div>
+                                <small style="color: var(--marron-clair); font-weight: 600;">🌙 SOIR</small>
+                                <div class="edit-agenda" data-day="${jour}" data-time="evening" contenteditable="true" style="font-size: 0.85rem; color: #555; outline: none;">${soir}</div>
+                            </div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        async function saveAgenda() {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            const jours = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+            
+            const updates = jours.map(jour => ({
+                user_id: user.id,
+                day_name: jour,
+                morning_text: document.querySelector(`.edit-agenda[data-day="${jour}"][data-time="morning"]`).innerText,
+                afternoon_text: document.querySelector(`.edit-agenda[data-day="${jour}"][data-time="afternoon"]`).innerText,
+                evening_text: document.querySelector(`.edit-agenda[data-day="${jour}"][data-time="evening"]`).innerText
+            }));
+
+            const { error } = await supabaseClient.from('agenda').upsert(updates, { onConflict: 'user_id,day_name' });
+            if (error) alert("Erreur : " + error.message); else alert("Agenda synchronisé ! ☁️");
+        }
+        async function loadMessages() {
+    const { data: messages, error } = await supabaseClient
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+    if (!error) {
+        const chatBox = document.getElementById("chatBox");
+        chatBox.innerHTML = messages.map(m => `
+            <div style="background: var(--gris-leger); padding: 8px 12px; border-radius: 12px; max-width: 80%; width: fit-content;">
+                <small style="display:block; font-size:0.6rem; color: var(--marron); font-weight: bold;">${m.user_email}</small>
+                <div style="font-size: 0.9rem;">${m.text}</div>
+            </div>
+        `).join('');
+        chatBox.scrollTop = chatBox.scrollHeight; // Scroll automatique vers le bas
+    }
+}
+
+async function sendMessage() {
+    const input = document.getElementById("chatInput");
+    if (!input.value) return;
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    await supabaseClient.from('messages').insert([
+        { text: input.value, user_id: user.id, user_email: user.email }
+    ]);
+
+    input.value = "";
+    loadMessages();
+}
+
+// Pour rafraîchir le chat quand on ouvre l'onglet
+// Modifie ta fonction openTab pour inclure :
+// if (tabName === 'chat') loadMessages();
+    </script>
+</body>
+</html>
