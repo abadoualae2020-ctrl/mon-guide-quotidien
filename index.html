@@ -455,16 +455,26 @@
         }
         let currentGroup = 'Général'; // Groupe par défaut
 
-function changeGroup(groupName) {
-    currentGroup = groupName;
-    
-    // Mise à jour visuelle des boutons
+let groupsMap = {}; 
+let currentGroupId = null;
+
+// Cette fonction va chercher les IDs réels dans ta table "groups"
+async function initChat() {
+    const { data: groups, error } = await supabaseClient.from('groups').select('*');
+    if (!error && groups) {
+        groups.forEach(g => { groupsMap[g.name] = g.id; });
+        currentGroupId = groupsMap['Général']; // On définit le groupe par défaut
+        loadMessages();
+    }
+}
+
+async function changeGroup(groupName) {
+    currentGroupId = groupsMap[groupName]; 
     document.querySelectorAll('.group-tab').forEach(btn => {
         btn.classList.toggle('active', btn.innerText.includes(groupName));
     });
-    
     document.getElementById('chatInput').placeholder = `Écris dans ${groupName}...`;
-    loadMessages(); // Recharger les messages du groupe spécifique
+    loadMessages();
 }
 
 async function loadMessages() {
@@ -472,7 +482,7 @@ async function loadMessages() {
     const { data: messages, error } = await supabaseClient
         .from('messages')
         .select('*')
-        .eq('group_name', currentGroup)
+        .eq('group_id', currentGroup)
         .order('created_at', { ascending: true });
 
     if (!error) {
