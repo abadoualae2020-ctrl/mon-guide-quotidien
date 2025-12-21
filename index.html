@@ -56,6 +56,8 @@
         gap: 5px !important;
     }
 }
+.group-controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid var(--gris-leger); }
+.group-badge { font-size: 0.7rem; background: var(--marron-clair); color: white; padding: 2px 8px; border-radius: 10px; margin-left: 5px; }
 
     </style>
 </head>
@@ -198,15 +200,30 @@
     </div>
 </div>
 <div id="chat" class="content-section">
-    <div class="card">
-        <h2>💬 Discussion</h2>
-        <div id="chatBox" style="height: 300px; overflow-y: auto; border: 1px solid var(--gris-leger); padding: 10px; border-radius: 12px; margin-bottom: 10px; background: #fdfdfd; display: flex; flex-direction: column; gap: 8px;">
-            </div>
-        <div style="display: flex; gap: 10px;">
-            <input type="text" id="chatInput" placeholder="Écris un message...">
-            <button onclick="sendMessage()" style="background: var(--vert-fonce); color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer;">Envoyer</button>
+   <div class="card">
+    <h2>💬 Mes Groupes Privés</h2>
+    
+    <div class="group-controls">
+        <div style="display: flex; gap: 5px;">
+            <input type="text" id="newGroupName" placeholder="Nom du nouveau groupe...">
+            <button onclick="createGroup()" style="background: var(--marron); color: white; border: none; border-radius: 12px; padding: 0 15px; cursor: pointer;">Créer</button>
+        </div>
+        
+        <select id="groupSelect" onchange="loadMessages()" style="margin: 0;"></select>
+        
+        <div id="inviteArea" style="display: flex; gap: 5px;">
+            <input type="email" id="inviteEmail" placeholder="Email de l'ami à inviter...">
+            <button onclick="inviteUser()" style="background: var(--vert-fonce); color: white; border: none; border-radius: 12px; padding: 0 15px; cursor: pointer;">Inviter</button>
         </div>
     </div>
+
+    <div id="chatBox" style="height: 250px; overflow-y: auto; border: 1px solid var(--gris-leger); padding: 10px; border-radius: 12px; margin-bottom: 10px; background: #fdfdfd; display: flex; flex-direction: column; gap: 8px;"></div>
+    
+    <div style="display: flex; gap: 10px;">
+        <input type="text" id="chatInput" placeholder="Écris un message...">
+        <button onclick="sendMessage()" style="background: var(--vert-fonce); color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer;">Envoyer</button>
+    </div>
+</div>
 </div>
     </div>
 
@@ -245,8 +262,12 @@
             if (user) {
                 loadTasks();
                 setupCalendar();
+                loadGroups();
             }
-        }
+         
+   
+    }
+        
 
         // --- TÂCHES ---
         async function loadTasks() {
@@ -472,7 +493,86 @@ async function sendMessage() {
 // Pour rafraîchir le chat quand on ouvre l'onglet
 // Modifie ta fonction openTab pour inclure :
 // if (tabName === 'chat') loadMessages();
+// --- LOGIQUE DES GROUPES ---
+
+// 1. Créer un groupe
+async function createGroup() {
+    const name = document.getElementById("newGroupName").value;
+    if (!name) return;
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    // Créer le groupe
+    const { data: group, error } = await supabaseClient.from('groups').insert([{ name: name, creator_id: user.id }]).select().single();
+    
+    if (!error) {
+        // S'ajouter soi-même comme premier membre
+        await supabaseClient.from('group_members').insert([{ group_id: group.id, user_email: user.email }]);
+        document.getElementById("newGroupName").value = "";
+        loadUserGroups(); // Rafraîchir la liste
+    }
+}
+
+// 2. Charger les groupes où je suis membre
+async function loadUserGroups() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    const { data: memberships } = await supabaseClient.from('group_members').select('group_id, groups(id, name)').eq('user_email', user.email);
+    
+    const select = document.getElementById("groupSelect");
+    select.innerHTML = memberships.map(m => `<option value="${m.group_id}">${m.groups.name}</option>`).join('');
+    loadMessages();
+}
+
+// 3. Inviter quelqu'un
+async function inviteUser() {
+    const email = document.getElementById("inviteEmail").value;
+    const groupId = document.getElementById("groupSelect").value;
+    if (!email || !groupId) return alert("Choisis un groupe et entre un email");
+
+    const { error } = await supabaseClient.from('group_members').insert([{ group_id: groupId, user_email: email }]);
+    if (error) alert("Utilisateur déjà invité ou erreur");
+    else { alert("Invitation envoyée !"); document.getElementById("inviteEmail").value = ""; }
+}
+
+// 4. Modifier sendMessage pour inclure le group_id
+async function sendMessage() {
+    const input = document.getElementById("chatInput");
+    const groupId = document.getElementById("groupSelect").value;
+    if (!input.value || !groupId) return;
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    await supabaseClient.from('messages').insert([{ 
+        text: input.value, 
+        user_id: user.id, 
+        user_email: user.email,
+        group_id: groupId 
+    }]);
+
+    input.value = "";
+    loadMessages();
+}
+
+// 5. Modifier loadMessages pour filtrer par groupe
+async function loadMessages() {
+    const groupId = document.getElementById("groupSelect").value;
+    if (!groupId) return;
+    
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    const { data: messages } = await supabaseClient.from('messages')
+        .select('*')
+        .eq('group_id', groupId)
+        .order('created_at', { ascending: true });
+
+    const chatBox = document.getElementById("chatBox");
+    chatBox.innerHTML = messages?.map(m => `
+        <div style="display: flex; flex-direction: column; align-items: ${m.user_id === user?.id ? 'flex-end' : 'flex-start'}">
+            <div style="background: ${m.user_id === user?.id ? 'var(--vert-fonce)' : 'var(--gris-leger)'}; color: ${m.user_id === user?.id ? 'white' : 'black'}; padding: 8px 12px; border-radius: 12px; max-width: 85%;">
+                <small style="display:block; font-size:0.6rem; opacity:0.8;">${m.user_email}</small>
+                <span>${m.text}</span>
+            </div>
+        </div>
+    `).join('') || "Aucun message dans ce groupe.";
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
     </script>
 </body>
 </html>
-
