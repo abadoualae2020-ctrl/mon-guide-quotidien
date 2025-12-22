@@ -447,7 +447,7 @@
                             padding: 8px 12px; border-radius: 12px; max-width: 80%; position: relative;">
                     <small style="display:block; font-size:0.6rem; opacity: 0.8;">${m.user_email.split('@')[0]}</small>
                     <div style="font-size: 0.9rem;">${m.text}</div>
-                    ${isMine ? `<button onclick="deleteMessage('${m.id}')" style="background:none; border:none; cursor:pointer; font-size:0.7rem; margin-top:5px; color:white; opacity:0.6;">Effacer 🗑️</button>` : ''}
+                    ${isMine ? `<button onclick="deleteMessage('${m.id}')" style="background:none; border:none; cursor:pointer; font-size:0.7rem; margin-top:5px; color:white; opacity:0.6;"> 🗑️</button>` : ''}
                 </div>
             </div>`;
         }).join('');
@@ -500,3 +500,4 @@ supabaseClient
     </script>
 </body>
 </html>
+
