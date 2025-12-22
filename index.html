@@ -145,7 +145,7 @@ body.dark-mode {
             </div>
             <div class="card">
     <h3>🎧 Musique Focus</h3>
-    <iframe style="border-radius:12px" src="https://open.spotify.com/embed/playlist/37i9dQZF1DWZqd5Jv9MB3S?utm_source=generator&theme=0" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+    <iframe style="border-radius:12px" src="https://open.spotify.com/embed/playlist/37i9dQZF1DWWQRwui0ExYv?utm_source=generator" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
 </div>
         </div>
 
@@ -214,9 +214,20 @@ body.dark-mode {
 </div>
 <div id="chat" class="content-section">
     <div class="card">
-        <h2>💬 Discussion</h2>
+        <h2>💬 Discussions</h2>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="groupNameInput" placeholder="Nouveau groupe...">
+            <button onclick="createGroup()" style="background: var(--marron); color: white; border: none; padding: 10px; border-radius: 12px; cursor: pointer;">Créer</button>
+        </div>
+
+        <div id="groupsList" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px; border-bottom: 1px solid var(--gris-leger);">
+            <button onclick="selectGroup(null)" class="tab-btn active">🌍 Général</button>
+        </div>
+
         <div id="chatBox" style="height: 300px; overflow-y: auto; border: 1px solid var(--gris-leger); padding: 10px; border-radius: 12px; margin-bottom: 10px; background: #fdfdfd; display: flex; flex-direction: column; gap: 8px;">
-            </div>
+        </div>
+
         <div style="display: flex; gap: 10px;">
             <input type="text" id="chatInput" placeholder="Écris un message...">
             <button onclick="sendMessage()" style="background: var(--vert-fonce); color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer;">Envoyer</button>
@@ -280,29 +291,53 @@ window.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- TÂCHES ---
-        async function loadTasks() {
-            const { data: tasks, error } = await supabaseClient.from('tasks').select('*').order('created_at', { ascending: false });
-            if (!error) {
-                const list = document.getElementById("taskList");
-                list.innerHTML = "";
-                tasks.forEach(t => {
-                    let div = document.createElement("div");
-                    div.className = "task-item";
-                    div.innerHTML = `
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="checkbox" ${t.is_completed ? 'checked' : ''} onchange="toggleTaskStatus('${t.id}', this.checked)">
-                            <span style="text-decoration: ${t.is_completed ? 'line-through' : 'none'}">${t.text}</span>
-                        </div>
-                        <button onclick="deleteTask('${t.id}')" style="background:none; border:none; cursor:pointer;">🗑️</button>`;
-                    list.appendChild(div);
-                });
-            }
-            // Dans loadTasks, sous chaque tâche principale :
-`<div style="margin-left: 20px; font-size: 0.8rem; color: gray;">
-    <input type="text" placeholder="Ajouter une sous-tâche..." 
-           onkeypress="if(event.key==='Enter') addSubTask('${t.id}', this.value)">
-</div>`
-        }
+       async function loadTasks() {
+    const { data: tasks, error } = await supabaseClient.from('tasks').select('*').order('created_at', { ascending: true });
+    if (error) return;
+
+    const list = document.getElementById("taskList");
+    list.innerHTML = "";
+
+    // On filtre d'abord les tâches principales (celles qui n'ont pas de parent_id)
+    const mainTasks = tasks.filter(t => !t.parent_id);
+    
+    mainTasks.forEach(t => {
+        let div = document.createElement("div");
+        div.style.marginBottom = "15px";
+        div.innerHTML = `
+            <div class="task-item" style="border-left: 4px solid var(--marron); padding-left: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" ${t.is_completed ? 'checked' : ''} onchange="toggleTaskStatus('${t.id}', this.checked)">
+                    <span style="font-weight: bold; text-decoration: ${t.is_completed ? 'line-through' : 'none'}">${t.text}</span>
+                </div>
+                <button onclick="deleteTask('${t.id}')" style="background:none; border:none; cursor:pointer;">🗑️</button>
+            </div>
+            <div id="subtasks-${t.id}" style="margin-left: 30px; margin-top: 5px; display: flex; flex-direction: column; gap: 5px;">
+                </div>
+            <div style="margin-left: 30px; margin-top: 5px;">
+                <input type="text" placeholder="+ Ajouter une étape..." 
+                       style="font-size: 0.75rem; border: none; border-bottom: 1px solid var(--gris-leger); background: transparent; outline: none;"
+                       onkeypress="if(event.key==='Enter') addSubTask('${t.id}', this.value)">
+            </div>
+        `;
+        list.appendChild(div);
+
+        // On ajoute les sous-tâches correspondantes
+        const subTasks = tasks.filter(st => st.parent_id === t.id);
+        const subContainer = document.getElementById(`subtasks-${t.id}`);
+        subTasks.forEach(st => {
+            subContainer.innerHTML += `
+                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; opacity: 0.8;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" ${st.is_completed ? 'checked' : ''} onchange="toggleTaskStatus('${st.id}', this.checked)">
+                        <span style="text-decoration: ${st.is_completed ? 'line-through' : 'none'}">${st.text}</span>
+                    </div>
+                    <button onclick="deleteTask('${st.id}')" style="background:none; border:none; cursor:pointer; font-size: 0.7rem;">✕</button>
+                </div>
+            `;
+        });
+    });
+}
 
         async function addTask() {
             const input = document.getElementById("taskInput");
@@ -322,6 +357,17 @@ window.addEventListener('DOMContentLoaded', () => {
             await supabaseClient.from('tasks').delete().eq('id', id);
             loadTasks();
         }
+        async function addSubTask(parentId, text) {
+    if (!text) return;
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    const { error } = await supabaseClient.from('tasks').insert([
+        { text: text, user_id: user.id, parent_id: parentId }
+    ]);
+
+    if (error) alert(error.message);
+    else loadTasks(); // Recharge la liste pour voir la sous-tâche
+}
 
         // --- POMODORO ---
         let timeLeft = 1500; let timerId = null;
@@ -469,63 +515,90 @@ window.addEventListener('DOMContentLoaded', () => {
             const { error } = await supabaseClient.from('agenda').upsert(updates, { onConflict: 'user_id,day_name' });
             if (error) alert("Erreur : " + error.message); else alert("Agenda synchronisé ! ☁️");
         }
-        async function loadMessages() {
+        letcurrentGroupId= any; null; // null = Discussion générale
+
+// --- GESTION DES GROUPES ---
+async function loadGroups() {
     const { data: { user } } = await supabaseClient.auth.getUser();
-    const { data: messages, error } = await supabaseClient
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: true });
+    const { data: groups, error } = await supabaseClient.from('groups').select('*');
+    if (!error) {
+        const list = document.getElementById("groupsList");
+        list.innerHTML = `<button onclick="selectGroup(null)" class="tab-btn ${currentGroupId === null ? 'active' : ''}">🌍 Général</button>`;
+        groups.forEach(g => {
+            const isOwner = g.created_by === user.id;
+            list.innerHTML += `
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <button onclick="selectGroup('${g.id}')" class="tab-btn ${currentGroupId === g.id ? 'active' : ''}">👥 ${g.name}</button>
+                    ${isOwner ? `<span onclick="deleteGroup('${g.id}')" style="cursor:pointer; font-size:0.7rem;">❌</span>` : ''}
+                </div>`;
+        });
+    }
+}
+
+function selectGroup(id) {
+    currentGroupId = id;
+    loadGroups();
+    loadMessages();
+}
+
+async function createGroup() {
+    const input = document.getElementById("groupNameInput");
+    if (!input.value) return;
+    const { error } = await supabaseClient.from('groups').insert([{ name: input.value }]);
+    if (error) alert(error.message);
+    else { input.value = ""; loadGroups(); }
+}
+
+// --- MESSAGES ET RÉACTIONS ---
+async function loadMessages() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    let query = supabaseClient.from('messages').select('*');
+    
+    if (currentGroupId) query = query.eq('group_id', currentGroupId);
+    else query = query.is('group_id', null);
+
+    const { data: messages, error } = await query.order('created_at', { ascending: true });
 
     if (!error) {
         const chatBox = document.getElementById("chatBox");
         chatBox.innerHTML = messages.map(m => {
-            const isMine = m.user_id === user.id; // Vérifie si c'est ton message
+            const isMine = m.user_id === user.id;
+            // On affiche les réactions stockées dans la base (si tu as ajouté la colonne)
+            // Sinon, voici l'UI des boutons de réaction
             return `
-            <div style="display: flex; flex-direction: column; align-items: ${isMine ? 'flex-end' : 'flex-start'}; gap: 2px; width: 100%;">
-                <div style="background: ${isMine ? 'var(--marron-clair)' : 'var(--gris-leger)'}; 
-                            color: ${isMine ? 'white' : 'black'}; 
-                            padding: 8px 12px; border-radius: 12px; max-width: 80%; position: relative;">
+            <div style="display: flex; flex-direction: column; align-items: ${isMine ? 'flex-end' : 'flex-start'}; width: 100%;">
+                <div style="background: ${isMine ? 'var(--marron-clair)' : 'var(--gris-leger)'}; color: ${isMine ? 'white' : 'black'}; padding: 8px 12px; border-radius: 12px; max-width: 80%;">
                     <small style="display:block; font-size:0.6rem; opacity: 0.8;">${m.user_email.split('@')[0]}</small>
-                    <div style="font-size: 0.9rem;">${m.text}</div>
-                    ${isMine ? `<button onclick="deleteMessage('${m.id}')" style="background:none; border:none; cursor:pointer; font-size:0.7rem; margin-top:5px; color:white; opacity:0.6;"> 🗑️</button>` : ''}
+                    <div>${m.text}</div>
+                    <div style="display:flex; gap:5px; margin-top:5px;">
+                        <span onclick="addReaction('${m.id}', '👍')" style="cursor:pointer; font-size:0.7rem;">👍</span>
+                        <span onclick="addReaction('${m.id}', '❤️')" style="cursor:pointer; font-size:0.7rem;">❤️</span>
+                    </div>
                 </div>
             </div>`;
         }).join('');
         chatBox.scrollTop = chatBox.scrollHeight;
     }
-    // Dans le map de loadMessages, ajoute cette ligne sous le texte du message :
-`<div style="display:flex; gap:5px; margin-top:5px;">
-    <span onclick="react('${m.id}', '👍')" style="cursor:pointer; font-size:0.7rem; opacity:0.6;">👍</span>
-    <span onclick="react('${m.id}', '❤️')" style="cursor:pointer; font-size:0.7rem; opacity:0.6;">❤️</span>
-    <span onclick="react('${m.id}', '🔥')" style="cursor:pointer; font-size:0.7rem; opacity:0.6;">🔥</span>
-    <span onclick="react('${m.id}', '😂')" style="cursor:pointer; font-size:0.7rem; opacity:0.6;">😂</span>
-    <span onclick="react('${m.id}', '😮')" style="cursor:pointer; font-size:0.7rem; opacity:0.6;">😮</span>
-    <span onclick="react('${m.id}', '😢')" style="cursor:pointer; font-size:0.7rem; opacity:0.6;">😢</span>
-    <span onclick="react('${m.id}', '👏')" style="cursor:pointer; font-size:0.7rem; opacity:0.6;">👏</span>
-    <span onclick="react('${m.id}', '🎉')" style="cursor:pointer; font-size:0.7rem; opacity:0.6;">🎉</span>
-    <span onclick="react('${m.id}', '😡')" style="cursor:pointer; font-size:0.7rem; opacity:0.6;">😡</span>
-    <span onclick="react('${m.id}', '🙏')" style="cursor:pointer; font-size:0.7rem; opacity:0.6;">🙏</span>
-</div>`
+}
+async function addReaction(messageId, emoji) {
+    // Cette partie nécessite une logique un peu plus poussée pour ne pas écraser les réactions des autres
+    // Pour l'instant, faisons une mise à jour simple de l'UI :
+    alert("Tu as réagi avec " + emoji + " ! (La sauvegarde nécessite la colonne JSONB)");
+    // loadMessages(); 
 }
 
 async function sendMessage() {
     const input = document.getElementById("chatInput");
     if (!input.value) return;
-
     const { data: { user } } = await supabaseClient.auth.getUser();
-    
-    await supabaseClient.from('messages').insert([
-        { text: input.value, user_id: user.id, user_email: user.email }
-    ]);
-
+    await supabaseClient.from('messages').insert([{ 
+        text: input.value, 
+        user_id: user.id, 
+        user_email: user.email,
+        group_id: currentGroupId 
+    }]);
     input.value = "";
     loadMessages();
-    document.getElementById("chatInput").addEventListener("keypress", function(event) {
-    if (event.key === "Enter") {
-        event.preventDefault();
-        sendMessage();
-    }
-});
 }
 async function deleteMessage(messageId) {
     if (confirm("Voulez-vous vraiment supprimer ce message ?")) {
