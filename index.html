@@ -430,6 +430,7 @@
             if (error) alert("Erreur : " + error.message); else alert("Agenda synchronisé ! ☁️");
         }
         async function loadMessages() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
     const { data: messages, error } = await supabaseClient
         .from('messages')
         .select('*')
@@ -437,13 +438,20 @@
 
     if (!error) {
         const chatBox = document.getElementById("chatBox");
-        chatBox.innerHTML = messages.map(m => `
-            <div style="background: var(--gris-leger); padding: 8px 12px; border-radius: 12px; max-width: 80%; width: fit-content;">
-                <small style="display:block; font-size:0.6rem; color: var(--marron); font-weight: bold;">${m.user_email}</small>
-                <div style="font-size: 0.9rem;">${m.text}</div>
-            </div>
-        `).join('');
-        chatBox.scrollTop = chatBox.scrollHeight; // Scroll automatique vers le bas
+        chatBox.innerHTML = messages.map(m => {
+            const isMine = m.user_id === user.id; // Vérifie si c'est ton message
+            return `
+            <div style="display: flex; flex-direction: column; align-items: ${isMine ? 'flex-end' : 'flex-start'}; gap: 2px; width: 100%;">
+                <div style="background: ${isMine ? 'var(--marron-clair)' : 'var(--gris-leger)'}; 
+                            color: ${isMine ? 'white' : 'black'}; 
+                            padding: 8px 12px; border-radius: 12px; max-width: 80%; position: relative;">
+                    <small style="display:block; font-size:0.6rem; opacity: 0.8;">${m.user_email.split('@')[0]}</small>
+                    <div style="font-size: 0.9rem;">${m.text}</div>
+                    ${isMine ? `<button onclick="deleteMessage('${m.id}')" style="background:none; border:none; cursor:pointer; font-size:0.7rem; margin-top:5px; color:white; opacity:0.6;">Effacer 🗑️</button>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+        chatBox.scrollTop = chatBox.scrollHeight;
     }
 }
 
@@ -459,11 +467,36 @@ async function sendMessage() {
 
     input.value = "";
     loadMessages();
+    document.getElementById("chatInput").addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        sendMessage();
+    }
+});
 }
+async function deleteMessage(messageId) {
+    if (confirm("Voulez-vous vraiment supprimer ce message ?")) {
+        const { error } = await supabaseClient
+            .from('messages')
+            .delete()
+            .eq('id', messageId);
 
-// Pour rafraîchir le chat quand on ouvre l'onglet
-// Modifie ta fonction openTab pour inclure :
-// if (tabName === 'chat') loadMessages();
+        if (error) {
+            alert("Erreur lors de la suppression : " + error.message);
+        } else {
+            loadMessages(); // Recharge le chat après suppression
+        }
+    }
+}
+window.onload = checkUser;
+
+// Écouter les nouveaux messages en temps réel
+supabaseClient
+  .channel('schema-db-changes')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+    loadMessages();
+  })
+  .subscribe();
     </script>
 </body>
 </html>
