@@ -515,7 +515,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const { error } = await supabaseClient.from('agenda').upsert(updates, { onConflict: 'user_id,day_name' });
             if (error) alert("Erreur : " + error.message); else alert("Agenda synchronisé ! ☁️");
         }
-        letcurrentGroupId= any; null; // null = Discussion générale
+       letcurrentGroupId = null; // null = Discussion générale
 
 // --- GESTION DES GROUPES ---
 async function loadGroups() {
@@ -533,6 +533,8 @@ async function loadGroups() {
                 </div>`;
         });
     }
+    // À modifier dans loadGroups()
+const isOwner = g.created_by === user.id;
 }
 
 function selectGroup(id) {
@@ -544,18 +546,35 @@ function selectGroup(id) {
 async function createGroup() {
     const input = document.getElementById("groupNameInput");
     if (!input.value) return;
-    const { error } = await supabaseClient.from('groups').insert([{ name: input.value }]);
-    if (error) alert(error.message);
-    else { input.value = ""; loadGroups(); }
+
+    // Récupérer l'utilisateur pour être sûr d'avoir son ID
+    const { data: { user } } = await supabaseClient.auth.getUser();
+
+    const { error } = await supabaseClient.from('groups').insert([
+        { 
+            name: input.value, 
+            created_by: user.id  // On utilise 'created_by' comme dans ton SQL
+        }
+    ]);
+
+    if (error) {
+        alert("Erreur : " + error.message);
+    } else {
+        input.value = "";
+        loadGroups();
+    }
 }
 
-// --- MESSAGES ET RÉACTIONS ---
+// --- MESSAGES ET RÉACTIONS --// --- MESSAGES ET RÉACTIONS ---
 async function loadMessages() {
     const { data: { user } } = await supabaseClient.auth.getUser();
     let query = supabaseClient.from('messages').select('*');
     
-    if (currentGroupId) query = query.eq('group_id', currentGroupId);
-    else query = query.is('group_id', null);
+    if (currentGroupId) {
+        query = query.eq('group_id', currentGroupId);
+    } else {
+        query = query.is('group_id', null);
+    }
 
     const { data: messages, error } = await query.order('created_at', { ascending: true });
 
@@ -563,23 +582,53 @@ async function loadMessages() {
         const chatBox = document.getElementById("chatBox");
         chatBox.innerHTML = messages.map(m => {
             const isMine = m.user_id === user.id;
-            // On affiche les réactions stockées dans la base (si tu as ajouté la colonne)
-            // Sinon, voici l'UI des boutons de réaction
             return `
-            <div style="display: flex; flex-direction: column; align-items: ${isMine ? 'flex-end' : 'flex-start'}; width: 100%;">
-                <div style="background: ${isMine ? 'var(--marron-clair)' : 'var(--gris-leger)'}; color: ${isMine ? 'white' : 'black'}; padding: 8px 12px; border-radius: 12px; max-width: 80%;">
-                    <small style="display:block; font-size:0.6rem; opacity: 0.8;">${m.user_email.split('@')[0]}</small>
-                    <div>${m.text}</div>
-                    <div style="display:flex; gap:5px; margin-top:5px;">
-                        <span onclick="addReaction('${m.id}', '👍')" style="cursor:pointer; font-size:0.7rem;">👍</span>
-                        <span onclick="addReaction('${m.id}', '❤️')" style="cursor:pointer; font-size:0.7rem;">❤️</span>
+                <div style="align-self: ${isMine ? 'flex-end' : 'flex-start'}; 
+                            background: ${isMine ? 'var(--vert-fonce)' : 'var(--gris-leger)'}; 
+                            color: ${isMine ? 'white' : 'black'}; 
+                            padding: 8px 12px; border-radius: 12px; max-width: 80%;">
+                    <div style="font-size: 0.7rem; opacity: 0.7; margin-bottom: 2px;">
+                        ${m.user_email || 'Anonyme'}
                     </div>
+                    <div>${m.content}</div>
                 </div>
-            </div>`;
+            `;
         }).join('');
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 }
+
+async function sendMessage() {
+    const input = document.getElementById("chatInput");
+    if (!input.value) return;
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+
+    const { error } = await supabaseClient.from('messages').insert([{
+        content: input.value,
+        user_id: user.id,
+        user_email: user.email,
+        group_id: currentGroupId
+    }]);
+
+    if (error) {
+        alert("Erreur d'envoi : " + error.message);
+    } else {
+        input.value = "";
+        loadMessages();
+    }
+}
+
+async function deleteGroup(id) {
+    if (confirm("Supprimer ce groupe et tous ses messages ?")) {
+        await supabaseClient.from('groups').delete().eq('id', id);
+        currentGroupId = null;
+        loadGroups();
+    }
+}
+
+// Lancer la vérification initiale au chargement
+checkUser();
 async function addReaction(messageId, emoji) {
     // Cette partie nécessite une logique un peu plus poussée pour ne pas écraser les réactions des autres
     // Pour l'instant, faisons une mise à jour simple de l'UI :
@@ -626,13 +675,24 @@ supabaseClient
   let currentGroupId = null; // null = Discussion générale
 
 async function createGroup() {
-    const name = document.getElementById("groupNameInput").value;
-    if (!name) return;
+    const input = document.getElementById("groupNameInput");
+    if (!input.value) return;
 
-    const { error } = await supabaseClient.from('groups').insert([{ name: name }]);
-    if (error) alert(error.message);
-    else {
-        document.getElementById("groupNameInput").value = "";
+    // 1. Récupérer l'utilisateur actuel
+    const { data: { user } } = await supabaseClient.auth.getUser();
+
+    // 2. Envoyer avec le bon nom de colonne (creator_id)
+    const { error } = await supabaseClient.from('groups').insert([
+        { 
+            name: input.value, 
+            creator_id: user.id  // <--- Vérifie bien que c'est creator_id ici
+        }
+    ]);
+
+    if (error) {
+        alert("Erreur : " + error.message);
+    } else {
+        input.value = "";
         loadGroups();
     }
 }
@@ -651,6 +711,8 @@ async function loadGroups() {
                 </button>`;
         });
     }
+    // Dans loadGroups(), modifie cette ligne :
+const isOwner = g.creator_id === user.id;
 }
 
 function selectGroup(id) {
@@ -711,9 +773,99 @@ async function sendMessage() {
     loadMessages();
 }
 
-// Appelle loadGroups quand on arrive sur l'onglet chat
-// Dans ta fonction openTab actuelle, ajoute :
-// if (tabName === 'chat') { loadGroups(); loadMessages(); }
-    </script>
+// --- MESSAGES ET RÉACTIONS (SUITE) ---
+async function loadMessages() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    let query = supabaseClient.from('messages').select('*');
+    
+    if (currentGroupId) {
+        query = query.eq('group_id', currentGroupId);
+    } else {
+        query = query.is('group_id', null);
+    }
+
+    const { data: messages, error } = await query.order('created_at', { ascending: true });
+
+    if (!error) {
+        const chatBox = document.getElementById("chatBox");
+        chatBox.innerHTML = ""; // Vide la boîte de chat avant de recharger
+        
+        messages.forEach(msg => {
+            const isMe = msg.user_id === user.id;
+            const messageDiv = document.createElement("div");
+            messageDiv.style.alignSelf = isMe ? "flex-end" : "flex-start";
+            messageDiv.style.maxWidth = "80%";
+            
+            messageDiv.innerHTML = `
+                <div style="background: ${isMe ? 'var(--vert-fonce)' : 'var(--gris-leger)'}; 
+                            color: ${isMe ? 'white' : 'var(--vert-fonce)'}; 
+                            padding: 10px 15px; border-radius: 15px; position: relative;">
+                    <div style="font-size: 0.7rem; opacity: 0.7; margin-bottom: 3px;">${msg.user_email.split('@')[0]}</div>
+                    <div>${msg.text}</div>
+                    <div style="display: flex; gap: 5px; margin-top: 5px;">
+                        <button onclick="addReaction('${msg.id}', '❤️')" style="background:none; border:none; cursor:pointer; font-size:0.8rem;">❤️ ${msg.reactions?.heart || 0}</button>
+                        <button onclick="addReaction('${msg.id}', '👍')" style="background:none; border:none; cursor:pointer; font-size:0.8rem;">👍 ${msg.reactions?.like || 0}</button>
+                    </div>
+                    ${isMe ? `<span onclick="deleteMessage('${msg.id}')" style="position:absolute; top:-5px; right:-5px; cursor:pointer; background:white; border-radius:50%; width:15px; height:15px; display:flex; align-items:center; justify-content:center; font-size:10px; border:1px solid #ddd;">✕</span>` : ''}
+                </div>
+            `;
+            chatBox.appendChild(messageDiv);
+        });
+        chatBox.scrollTop = chatBox.scrollHeight; // Scroll automatique vers le bas
+    }
+}
+
+async function sendMessage() {
+    const input = document.getElementById("chatInput");
+    if (!input.value) return;
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+
+    const { error } = await supabaseClient.from('messages').insert([{
+        text: input.value,
+        user_id: user.id,
+        user_email: user.email,
+        group_id: currentGroupId,
+        reactions: { heart: 0, like: 0 }
+    }]);
+
+    if (!error) {
+        input.value = "";
+        loadMessages();
+    }
+}
+
+async function addReaction(msgId, type) {
+    const { data: msg } = await supabaseClient.from('messages').select('reactions').eq('id', msgId).single();
+    let newReactions = msg.reactions || { heart: 0, like: 0 };
+    
+    if (type === '❤️') newReactions.heart++;
+    if (type === '👍') newReactions.like++;
+ 
+
+    await supabaseClient.from('messages').update({ reactions: newReactions }).eq('id', msgId);
+    loadMessages();
+}
+
+async function deleteMessage(id) {
+    if (confirm("Supprimer ce message ?")) {
+        await supabaseClient.from('messages').delete().eq('id', id);
+        loadMessages();
+    }
+}
+
+async function deleteGroup(id) {
+    if (confirm("Supprimer ce groupe et ses messages ?")) {
+        await supabaseClient.from('messages').delete().eq('group_id', id);
+        await supabaseClient.from('groups').delete().eq('id', id);
+        currentGroupId = null;
+        loadGroups();
+        loadMessages();
+    }
+}
+
+// Initialisation au démarrage
+window.onload = checkUser;
+</script>
 </body>
 </html>
