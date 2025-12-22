@@ -18,6 +18,17 @@
             --gris-leger: #ECECE8;
         }
 
+        /* Couleurs quand le mode sombre est activé */
+body.dark-mode {
+    --blanc-fond: #121212;
+    --vert-fonce: #81b29a; /* Vert plus clair pour le contraste */
+    --marron: #e07a5f;
+    --marron-clair: #f2cc8f;
+    --gris-leger: #2a2a2a;
+    --card-bg: #1e1e1e;
+    --text-color: #e0e0e0;
+}
+
         body { font-family: 'Inter', sans-serif; background-color: var(--blanc-fond); color: var(--vert-fonce); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding-bottom: 40px; }
 
         /* --- AUTHENTIFICATION --- */
@@ -73,7 +84,7 @@
 
     <div id="main-interface">
         <button class="logout-btn" onclick="signOut()">Déconnexion</button>
-
+        <button class="logout-btn" onclick="toggleDarkMode()" style="right: 140px;">🌓 Mode</button>
         <div class="tabs-container">
             <div class="tabs">
                 <button class="tab-btn active" onclick="openTab(event, 'planning')">📌 taches</button>
@@ -218,6 +229,22 @@
         let isLoginMode = true;
 
         // --- AUTH ---
+        function toggleDarkMode() {
+    // Ajoute ou retire la classe .dark-mode au body
+    document.body.classList.toggle('dark-mode');
+    
+    // Sauvegarder la préférence de l'utilisateur
+    const isDark = document.body.classList.contains('dark-mode');
+    localStorage.setItem('darkMode', isDark);
+}
+
+// Vérifier au chargement de la page si l'utilisateur préférait le mode sombre
+window.addEventListener('DOMContentLoaded', () => {
+    if (localStorage.getItem('darkMode') === 'true') {
+        document.body.classList.add('dark-mode');
+    }
+});
+
         function toggleAuthMode() {
             isLoginMode = !isLoginMode;
             document.getElementById('auth-title').innerText = isLoginMode ? "Connexion" : "Inscription";
@@ -497,7 +524,97 @@ supabaseClient
     loadMessages();
   })
   .subscribe();
+  let currentGroupId = null; // null = Discussion générale
+
+async function createGroup() {
+    const name = document.getElementById("groupNameInput").value;
+    if (!name) return;
+
+    const { error } = await supabaseClient.from('groups').insert([{ name: name }]);
+    if (error) alert(error.message);
+    else {
+        document.getElementById("groupNameInput").value = "";
+        loadGroups();
+    }
+}
+
+async function loadGroups() {
+    const { data: groups, error } = await supabaseClient.from('groups').select('*');
+    if (!error) {
+        const list = document.getElementById("groupsList");
+        // On garde le bouton Général
+        list.innerHTML = `<button onclick="selectGroup(null)" class="tab-btn ${currentGroupId === null ? 'active' : ''}">🌍 Général</button>`;
+        
+        groups.forEach(g => {
+            list.innerHTML += `
+                <button onclick="selectGroup('${g.id}')" class="tab-btn ${currentGroupId === g.id ? 'active' : ''}">
+                    👥 ${g.name}
+                </button>`;
+        });
+    }
+}
+
+function selectGroup(id) {
+    currentGroupId = id;
+    loadGroups(); // Pour mettre à jour l'apparence des boutons
+    loadMessages(); // Pour charger les messages du groupe
+}
+
+// MODIFIER loadMessages pour filtrer par groupe
+async function loadMessages() {
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    let query = supabaseClient.from('messages').select('*');
+    
+    // Filtrage : soit group_id est celui choisi, soit il est vide pour le général
+    if (currentGroupId) {
+        query = query.eq('group_id', currentGroupId);
+    } else {
+        query = query.is('group_id', null);
+    }
+
+    const { data: messages, error } = await query.order('created_at', { ascending: true });
+
+    if (!error) {
+        const chatBox = document.getElementById("chatBox");
+        chatBox.innerHTML = messages.map(m => {
+            const isMine = m.user_id === user.id;
+            return `
+            <div style="display: flex; flex-direction: column; align-items: ${isMine ? 'flex-end' : 'flex-start'}; width: 100%;">
+                <div style="background: ${isMine ? 'var(--marron-clair)' : 'var(--gris-leger)'}; color: ${isMine ? 'white' : 'black'}; padding: 8px 12px; border-radius: 12px; max-width: 80%;">
+                    <small style="display:block; font-size:0.6rem; opacity: 0.8;">${m.user_email ? m.user_email.split('@')[0] : 'Anonyme'}</small>
+                    <div>${m.text}</div>
+                    ${isMine ? `<button onclick="deleteMessage('${m.id}')" style="background:none; border:none; cursor:pointer; font-size:0.7rem; color:inherit; opacity:0.5;">Effacer</button>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+}
+
+// MODIFIER sendMessage pour inclure le group_id
+async function sendMessage() {
+    const input = document.getElementById("chatInput");
+    if (!input.value) return;
+
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    await supabaseClient.from('messages').insert([
+        { 
+            text: input.value, 
+            user_id: user.id, 
+            user_email: user.email,
+            group_id: currentGroupId // On lie le message au groupe actuel
+        }
+    ]);
+
+    input.value = "";
+    loadMessages();
+}
+
+// Appelle loadGroups quand on arrive sur l'onglet chat
+// Dans ta fonction openTab actuelle, ajoute :
+// if (tabName === 'chat') { loadGroups(); loadMessages(); }
     </script>
 </body>
 </html>
-
