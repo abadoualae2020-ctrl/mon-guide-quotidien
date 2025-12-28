@@ -20,15 +20,14 @@
 
         /* Couleurs quand le mode sombre est activé */
 body.dark-mode {
-    --blanc-fond: #414141;
-    --vert-fonce: #819ab2; /* Vert plus clair pour le contraste */
-    --marron: #976c60;
-    --marron-clair: #8ff297;
+    --blanc-fond: #121212;
+    --vert-fonce: #81b29a; /* Vert plus clair pour le contraste */
+    --marron: #e07a5f;
+    --marron-clair: #f2cc8f;
     --gris-leger: #2a2a2a;
-    --card-bg: #000000;
-    --text-color: #9c8bbb;
+    --card-bg: #1e1e1e;
+    --text-color: #e0e0e0;
 }
-
         body { font-family: 'Inter', sans-serif; background-color: var(--blanc-fond); color: var(--vert-fonce); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding-bottom: 40px; }
 
         /* --- AUTHENTIFICATION --- */
@@ -84,7 +83,7 @@ body.dark-mode {
 
     <div id="main-interface">
         <button class="logout-btn" onclick="signOut()">Déconnexion</button>
-        <button class="logout-btn" onclick="toggleDarkMode()" style="right: 140px;">🌓 Mode</button>
+<button class="logout-btn" onclick="toggleDarkMode()" style="right: 140px;">🌓 Mode</button>
         <div class="tabs-container">
             <div class="tabs">
                 <button class="tab-btn active" onclick="openTab(event, 'planning')">📌 taches</button>
@@ -143,10 +142,6 @@ body.dark-mode {
                     </details>
                 </div>
             </div>
-            <div class="card">
-    <h3>🎧 Musique Focus</h3>
-    <iframe style="border-radius:12px" src="https://open.spotify.com/embed/playlist/37i9dQZF1DWWQRwui0ExYv?utm_source=generator" width="100%" height="152" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-</div>
         </div>
 
         <div id="cuisine" class="content-section">
@@ -214,20 +209,9 @@ body.dark-mode {
 </div>
 <div id="chat" class="content-section">
     <div class="card">
-        <h2>💬 Discussions</h2>
-        
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <input type="text" id="groupNameInput" placeholder="Nouveau groupe...">
-            <button onclick="createGroup()" style="background: var(--marron); color: white; border: none; padding: 10px; border-radius: 12px; cursor: pointer;">Créer</button>
-        </div>
-
-        <div id="groupsList" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 15px; border-bottom: 1px solid var(--gris-leger);">
-            <button onclick="selectGroup(null)" class="tab-btn active">🌍 Général</button>
-        </div>
-
+        <h2>💬 Discussion</h2>
         <div id="chatBox" style="height: 300px; overflow-y: auto; border: 1px solid var(--gris-leger); padding: 10px; border-radius: 12px; margin-bottom: 10px; background: #fdfdfd; display: flex; flex-direction: column; gap: 8px;">
-        </div>
-
+            </div>
         <div style="display: flex; gap: 10px;">
             <input type="text" id="chatInput" placeholder="Écris un message...">
             <button onclick="sendMessage()" style="background: var(--vert-fonce); color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer;">Envoyer</button>
@@ -291,53 +275,24 @@ window.addEventListener('DOMContentLoaded', () => {
         }
 
         // --- TÂCHES ---
-       async function loadTasks() {
-    const { data: tasks, error } = await supabaseClient.from('tasks').select('*').order('created_at', { ascending: true });
-    if (error) return;
-
-    const list = document.getElementById("taskList");
-    list.innerHTML = "";
-
-    // On filtre d'abord les tâches principales (celles qui n'ont pas de parent_id)
-    const mainTasks = tasks.filter(t => !t.parent_id);
-    
-    mainTasks.forEach(t => {
-        let div = document.createElement("div");
-        div.style.marginBottom = "15px";
-        div.innerHTML = `
-            <div class="task-item" style="border-left: 4px solid var(--marron); padding-left: 10px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" ${t.is_completed ? 'checked' : ''} onchange="toggleTaskStatus('${t.id}', this.checked)">
-                    <span style="font-weight: bold; text-decoration: ${t.is_completed ? 'line-through' : 'none'}">${t.text}</span>
-                </div>
-                <button onclick="deleteTask('${t.id}')" style="background:none; border:none; cursor:pointer;">🗑️</button>
-            </div>
-            <div id="subtasks-${t.id}" style="margin-left: 30px; margin-top: 5px; display: flex; flex-direction: column; gap: 5px;">
-                </div>
-            <div style="margin-left: 30px; margin-top: 5px;">
-                <input type="text" placeholder="+ Ajouter une étape..." 
-                       style="font-size: 0.75rem; border: none; border-bottom: 1px solid var(--gris-leger); background: transparent; outline: none;"
-                       onkeypress="if(event.key==='Enter') addSubTask('${t.id}', this.value)">
-            </div>
-        `;
-        list.appendChild(div);
-
-        // On ajoute les sous-tâches correspondantes
-        const subTasks = tasks.filter(st => st.parent_id === t.id);
-        const subContainer = document.getElementById(`subtasks-${t.id}`);
-        subTasks.forEach(st => {
-            subContainer.innerHTML += `
-                <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.85rem; opacity: 0.8;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" ${st.is_completed ? 'checked' : ''} onchange="toggleTaskStatus('${st.id}', this.checked)">
-                        <span style="text-decoration: ${st.is_completed ? 'line-through' : 'none'}">${st.text}</span>
-                    </div>
-                    <button onclick="deleteTask('${st.id}')" style="background:none; border:none; cursor:pointer; font-size: 0.7rem;">✕</button>
-                </div>
-            `;
-        });
-    });
-}
+        async function loadTasks() {
+            const { data: tasks, error } = await supabaseClient.from('tasks').select('*').order('created_at', { ascending: false });
+            if (!error) {
+                const list = document.getElementById("taskList");
+                list.innerHTML = "";
+                tasks.forEach(t => {
+                    let div = document.createElement("div");
+                    div.className = "task-item";
+                    div.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" ${t.is_completed ? 'checked' : ''} onchange="toggleTaskStatus('${t.id}', this.checked)">
+                            <span style="text-decoration: ${t.is_completed ? 'line-through' : 'none'}">${t.text}</span>
+                        </div>
+                        <button onclick="deleteTask('${t.id}')" style="background:none; border:none; cursor:pointer;">🗑️</button>`;
+                    list.appendChild(div);
+                });
+            }
+        }
 
         async function addTask() {
             const input = document.getElementById("taskInput");
@@ -357,17 +312,6 @@ window.addEventListener('DOMContentLoaded', () => {
             await supabaseClient.from('tasks').delete().eq('id', id);
             loadTasks();
         }
-        async function addSubTask(parentId, text) {
-    if (!text) return;
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    
-    const { error } = await supabaseClient.from('tasks').insert([
-        { text: text, user_id: user.id, parent_id: parentId }
-    ]);
-
-    if (error) alert(error.message);
-    else loadTasks(); // Recharge la liste pour voir la sous-tâche
-}
 
         // --- POMODORO ---
         let timeLeft = 1500; let timerId = null;
@@ -455,12 +399,8 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById(tabName).classList.add("active");
     evt.currentTarget.classList.add("active");
 
-   
-    // CRUCIAL : Charger les groupes ET les messages quand on ouvre le chat
-    if (tabName === 'chat') {
-        loadGroups(); 
-        loadMessages();
-    }
+    // Ajoute cette ligne pour charger le chat quand on clique dessus
+    if (tabName === 'chat') loadMessages();
 }
 
         async function setupCalendar() {
@@ -515,84 +455,27 @@ window.addEventListener('DOMContentLoaded', () => {
             const { error } = await supabaseClient.from('agenda').upsert(updates, { onConflict: 'user_id,day_name' });
             if (error) alert("Erreur : " + error.message); else alert("Agenda synchronisé ! ☁️");
         }
-       letcurrentGroupId = null; // null = Discussion générale
-
-// --- GESTION DES GROUPES ---
-async function loadGroups() {
+        async function loadMessages() {
     const { data: { user } } = await supabaseClient.auth.getUser();
-    const { data: groups, error } = await supabaseClient.from('groups').select('*');
-    if (!error) {
-        const list = document.getElementById("groupsList");
-        list.innerHTML = `<button onclick="selectGroup(null)" class="tab-btn ${currentGroupId === null ? 'active' : ''}">🌍 Général</button>`;
-        groups.forEach(g => {
-            const isOwner = g.created_by === user.id;
-            list.innerHTML += `
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <button onclick="selectGroup('${g.id}')" class="tab-btn ${currentGroupId === g.id ? 'active' : ''}">👥 ${g.name}</button>
-                    ${isOwner ? `<span onclick="deleteGroup('${g.id}')" style="cursor:pointer; font-size:0.7rem;">❌</span>` : ''}
-                </div>`;
-        });
-    }
-    // À modifier dans loadGroups()
-const isOwner = g.created_by === user.id;
-}
-
-function selectGroup(id) {
-    currentGroupId = id;
-    loadGroups();
-    loadMessages();
-}
-
-async function createGroup() {
-    const input = document.getElementById("groupNameInput");
-    if (!input.value) return;
-
-    // Récupérer l'utilisateur pour être sûr d'avoir son ID
-    const { data: { user } } = await supabaseClient.auth.getUser();
-
-    const { error } = await supabaseClient.from('groups').insert([
-        { 
-            name: input.value, 
-            created_by: user.id  // On utilise 'created_by' comme dans ton SQL
-        }
-    ]);
-
-    if (error) {
-        alert("Erreur : " + error.message);
-    } else {
-        input.value = "";
-        loadGroups();
-    }
-}
-
-// --- MESSAGES ET RÉACTIONS --// --- MESSAGES ET RÉACTIONS ---
-async function loadMessages() {
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    let query = supabaseClient.from('messages').select('*');
-    
-    if (currentGroupId) {
-        query = query.eq('group_id', currentGroupId);
-    } else {
-        query = query.is('group_id', null);
-    }
-
-    const { data: messages, error } = await query.order('created_at', { ascending: true });
+    const { data: messages, error } = await supabaseClient
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: true });
 
     if (!error) {
         const chatBox = document.getElementById("chatBox");
         chatBox.innerHTML = messages.map(m => {
-            const isMine = m.user_id === user.id;
+            const isMine = m.user_id === user.id; // Vérifie si c'est ton message
             return `
-                <div style="align-self: ${isMine ? 'flex-end' : 'flex-start'}; 
-                            background: ${isMine ? 'var(--vert-fonce)' : 'var(--gris-leger)'}; 
+            <div style="display: flex; flex-direction: column; align-items: ${isMine ? 'flex-end' : 'flex-start'}; gap: 2px; width: 100%;">
+                <div style="background: ${isMine ? 'var(--marron-clair)' : 'var(--gris-leger)'}; 
                             color: ${isMine ? 'white' : 'black'}; 
-                            padding: 8px 12px; border-radius: 12px; max-width: 80%;">
-                    <div style="font-size: 0.7rem; opacity: 0.7; margin-bottom: 2px;">
-                        ${m.user_email || 'Anonyme'}
-                    </div>
-                    <div>${m.content}</div>
+                            padding: 8px 12px; border-radius: 12px; max-width: 80%; position: relative;">
+                    <small style="display:block; font-size:0.6rem; opacity: 0.8;">${m.user_email.split('@')[0]}</small>
+                    <div style="font-size: 0.9rem;">${m.text}</div>
+                    ${isMine ? `<button onclick="deleteMessage('${m.id}')" style="background:none; border:none; cursor:pointer; font-size:0.7rem; margin-top:5px; color:white; opacity:0.6;">Effacer 🗑️</button>` : ''}
                 </div>
-            `;
+            </div>`;
         }).join('');
         chatBox.scrollTop = chatBox.scrollHeight;
     }
@@ -603,49 +486,11 @@ async function sendMessage() {
     if (!input.value) return;
 
     const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    await supabaseClient.from('messages').insert([
+        { text: input.value, user_id: user.id, user_email: user.email }
+    ]);
 
-    const { error } = await supabaseClient.from('messages').insert([{
-        content: input.value,
-        user_id: user.id,
-        user_email: user.email,
-        group_id: currentGroupId
-    }]);
-
-    if (error) {
-        alert("Erreur d'envoi : " + error.message);
-    } else {
-        input.value = "";
-        loadMessages();
-    }
-}
-
-async function deleteGroup(id) {
-    if (confirm("Supprimer ce groupe et tous ses messages ?")) {
-        await supabaseClient.from('groups').delete().eq('id', id);
-        currentGroupId = null;
-        loadGroups();
-    }
-}
-
-// Lancer la vérification initiale au chargement
-checkUser();
-async function addReaction(messageId, emoji) {
-    // Cette partie nécessite une logique un peu plus poussée pour ne pas écraser les réactions des autres
-    // Pour l'instant, faisons une mise à jour simple de l'UI :
-    alert("Tu as réagi avec " + emoji + " ! (La sauvegarde nécessite la colonne JSONB)");
-    // loadMessages(); 
-}
-
-async function sendMessage() {
-    const input = document.getElementById("chatInput");
-    if (!input.value) return;
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    await supabaseClient.from('messages').insert([{ 
-        text: input.value, 
-        user_id: user.id, 
-        user_email: user.email,
-        group_id: currentGroupId 
-    }]);
     input.value = "";
     loadMessages();
 }
@@ -665,34 +510,19 @@ async function deleteMessage(messageId) {
 }
 window.onload = checkUser;
 
-// Écouter les nouveaux messages en temps réel
-supabaseClient
-  .channel('schema-db-changes')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-    loadMessages();
-  })
-  .subscribe();
-  let currentGroupId = null; // null = Discussion générale
+// Pour rafraîchir le chat quand on ouvre l'onglet
+// Modifie ta fonction openTab pour inclure :
+// if (tabName === 'chat') loadMessages();
+let currentGroupId = null; // null = Discussion générale
 
 async function createGroup() {
-    const input = document.getElementById("groupNameInput");
-    if (!input.value) return;
+    const name = document.getElementById("groupNameInput").value;
+    if (!name) return;
 
-    // 1. Récupérer l'utilisateur actuel
-    const { data: { user } } = await supabaseClient.auth.getUser();
-
-    // 2. Envoyer avec le bon nom de colonne (creator_id)
-    const { error } = await supabaseClient.from('groups').insert([
-        { 
-            name: input.value, 
-            creator_id: user.id  // <--- Vérifie bien que c'est creator_id ici
-        }
-    ]);
-
-    if (error) {
-        alert("Erreur : " + error.message);
-    } else {
-        input.value = "";
+    const { error } = await supabaseClient.from('groups').insert([{ name: name }]);
+    if (error) alert(error.message);
+    else {
+        document.getElementById("groupNameInput").value = "";
         loadGroups();
     }
 }
@@ -711,8 +541,6 @@ async function loadGroups() {
                 </button>`;
         });
     }
-    // Dans loadGroups(), modifie cette ligne :
-const isOwner = g.creator_id === user.id;
 }
 
 function selectGroup(id) {
@@ -773,99 +601,11 @@ async function sendMessage() {
     loadMessages();
 }
 
-// --- MESSAGES ET RÉACTIONS (SUITE) ---
-async function loadMessages() {
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    let query = supabaseClient.from('messages').select('*');
-    
-    if (currentGroupId) {
-        query = query.eq('group_id', currentGroupId);
-    } else {
-        query = query.is('group_id', null);
-    }
-
-    const { data: messages, error } = await query.order('created_at', { ascending: true });
-
-    if (!error) {
-        const chatBox = document.getElementById("chatBox");
-        chatBox.innerHTML = ""; // Vide la boîte de chat avant de recharger
-        
-        messages.forEach(msg => {
-            const isMe = msg.user_id === user.id;
-            const messageDiv = document.createElement("div");
-            messageDiv.style.alignSelf = isMe ? "flex-end" : "flex-start";
-            messageDiv.style.maxWidth = "80%";
-            
-            messageDiv.innerHTML = `
-                <div style="background: ${isMe ? 'var(--vert-fonce)' : 'var(--gris-leger)'}; 
-                            color: ${isMe ? 'white' : 'var(--vert-fonce)'}; 
-                            padding: 10px 15px; border-radius: 15px; position: relative;">
-                    <div style="font-size: 0.7rem; opacity: 0.7; margin-bottom: 3px;">${msg.user_email.split('@')[0]}</div>
-                    <div>${msg.text}</div>
-                    <div style="display: flex; gap: 5px; margin-top: 5px;">
-                        <button onclick="addReaction('${msg.id}', '❤️')" style="background:none; border:none; cursor:pointer; font-size:0.8rem;">❤️ ${msg.reactions?.heart || 0}</button>
-                        <button onclick="addReaction('${msg.id}', '👍')" style="background:none; border:none; cursor:pointer; font-size:0.8rem;">👍 ${msg.reactions?.like || 0}</button>
-                    </div>
-                    ${isMe ? `<span onclick="deleteMessage('${msg.id}')" style="position:absolute; top:-5px; right:-5px; cursor:pointer; background:white; border-radius:50%; width:15px; height:15px; display:flex; align-items:center; justify-content:center; font-size:10px; border:1px solid #ddd;">✕</span>` : ''}
-                </div>
-            `;
-            chatBox.appendChild(messageDiv);
-        });
-        chatBox.scrollTop = chatBox.scrollHeight; // Scroll automatique vers le bas
-    }
-}
-
-async function sendMessage() {
-    const input = document.getElementById("chatInput");
-    if (!input.value) return;
-
-    const { data: { user } } = await supabaseClient.auth.getUser();
-
-    const { error } = await supabaseClient.from('messages').insert([{
-        text: input.value,
-        user_id: user.id,
-        user_email: user.email,
-        group_id: currentGroupId,
-        reactions: { heart: 0, like: 0 }
-    }]);
-
-    if (!error) {
-        input.value = "";
-        loadMessages();
-    }
-}
-
-async function addReaction(msgId, type) {
-    const { data: msg } = await supabaseClient.from('messages').select('reactions').eq('id', msgId).single();
-    let newReactions = msg.reactions || { heart: 0, like: 0 };
-    
-    if (type === '❤️') newReactions.heart++;
-    if (type === '👍') newReactions.like++;
- 
-
-    await supabaseClient.from('messages').update({ reactions: newReactions }).eq('id', msgId);
-    loadMessages();
-}
-
-async function deleteMessage(id) {
-    if (confirm("Supprimer ce message ?")) {
-        await supabaseClient.from('messages').delete().eq('id', id);
-        loadMessages();
-    }
-}
-
-async function deleteGroup(id) {
-    if (confirm("Supprimer ce groupe et ses messages ?")) {
-        await supabaseClient.from('messages').delete().eq('group_id', id);
-        await supabaseClient.from('groups').delete().eq('id', id);
-        currentGroupId = null;
-        loadGroups();
-        loadMessages();
-    }
-}
-
-// Initialisation au démarrage
-window.onload = checkUser;
-</script>
+// Appelle loadGroups quand on arrive sur l'onglet chat
+// Dans ta fonction openTab actuelle, ajoute :
+// if (tabName === 'chat') { loadGroups(); loadMessages(); }
+    </script>
 </body>
 </html>
+
+
